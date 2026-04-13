@@ -51,7 +51,7 @@ export function MultiRuleSetting() {
           <span>Multi-rule selection</span>
           <TooltipExplanation
             side="top"
-            text="This only lets the AI return multiple custom rules from the AI selection step. More than one rule can still be applied in some other cases, such as learned-pattern matches, conversation-status rules, or when a deterministic match is combined with an AI match."
+            text="Turning this off stops the AI from intentionally choosing multiple custom rules for one email. Inbox Zero can still apply more than one rule in a few special cases."
           />
         </div>
       }

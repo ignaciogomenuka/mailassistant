@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  buildAffirmativeReactionMessage,
   buildPendingEmailCardFallbackText,
   getPendingEmailHandledOpenText,
   getPendingEmailHandledStatus,
@@ -103,6 +104,32 @@ describe("normalizeMessagingUserText", () => {
     expect(
       normalizeMessagingUserText({ text: "yes please summarize my inbox" }),
     ).toBe("yes please summarize my inbox");
+  });
+});
+
+describe("buildAffirmativeReactionMessage", () => {
+  it("converts a reaction event into a synthetic yes message", () => {
+    const message = buildAffirmativeReactionMessage({
+      event: {
+        threadId: "teams:conversation-1",
+        messageId: "message-1",
+        emoji: { name: "thumbs_up" },
+        raw: { type: "messageReaction" },
+        user: {
+          userId: "user-1",
+          userName: "User One",
+          fullName: "User One",
+          isBot: false,
+          isMe: false,
+        },
+      } as any,
+    });
+
+    expect(message.text).toBe("yes");
+    expect(message.threadId).toBe("teams:conversation-1");
+    expect(message.author.userId).toBe("user-1");
+    expect(message.raw).toEqual({ type: "messageReaction" });
+    expect(message.id).toContain("thumbs_up");
   });
 });
 

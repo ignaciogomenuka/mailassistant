@@ -20,7 +20,9 @@ import {
   type Adapter,
   type Attachment,
   type CardChild,
+  emoji,
   type Message,
+  type ReactionEvent,
   type Thread,
 } from "chat";
 import { env } from "@/env";
@@ -418,6 +420,28 @@ function registerMessagingHandlers({
       message,
       logger: handlerLogger,
     });
+  });
+
+  bot.onReaction([emoji.thumbs_up, emoji.check], async (event) => {
+    if (!event.added) return;
+
+    const provider = event.thread.adapter.name;
+    if (provider !== "teams" && provider !== "telegram") return;
+
+    const handlerLogger = getHandlerLogger();
+    const handled = await processMessagingAssistantMessage({
+      adapters,
+      thread: event.thread,
+      message: buildAffirmativeReactionMessage({ event }),
+      logger: handlerLogger,
+    });
+
+    if (handled) {
+      await subscribeMessagingThreadSafely({
+        thread: event.thread,
+        logger: handlerLogger,
+      });
+    }
   });
 
   bot.onAction(
@@ -2533,6 +2557,35 @@ export function normalizeMessagingAssistantText({ text }: { text: string }) {
   );
 
   return normalized;
+}
+
+export function buildAffirmativeReactionMessage({
+  event,
+}: {
+  event: ReactionEvent;
+}) {
+  return {
+    id: `reaction:${event.threadId}:${event.messageId}:${event.user.userId}:${event.emoji.name}`,
+    threadId: event.threadId,
+    text: "yes",
+    formatted: {
+      type: "root",
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "yes" }],
+        },
+      ],
+    },
+    raw: event.raw,
+    author: event.user,
+    metadata: {
+      dateSent: new Date(),
+      edited: false,
+    },
+    attachments: [],
+    links: [],
+  } as Message;
 }
 
 export function normalizeMessagingUserText({ text }: { text: string }) {

@@ -3,6 +3,10 @@ import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";
 import { env } from "@/env";
+import {
+  getAvailableActionsForRuleEditor,
+  getExtraAvailableActionsForRuleEditor,
+} from "@/utils/ai/rule/action-availability";
 import { delayInMinutesLlmSchema } from "@/utils/actions/rule.validation";
 import {
   AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
@@ -45,27 +49,13 @@ const conditionSchema = z
   .describe("The conditions to match");
 
 export function getAvailableActions(provider: string) {
-  const availableActions: ActionType[] = [
-    ActionType.LABEL,
-    ...(isMicrosoftProvider(provider) ? [ActionType.MOVE_FOLDER] : []),
-    ActionType.ARCHIVE,
-    ActionType.MARK_READ,
-    ...(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED ? [] : [ActionType.DRAFT_EMAIL]),
-    // Only include send-related actions when email sending is enabled
-    ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
-      ? [ActionType.REPLY, ActionType.FORWARD, ActionType.SEND_EMAIL]
-      : []),
-    ActionType.MARK_SPAM,
-  ].filter(isDefined);
+  const availableActions = getAvailableActionsForRuleEditor({
+    provider,
+  }).filter(isDefined);
   return availableActions as [ActionType, ...ActionType[]];
 }
 
-export const getExtraActions = () => [
-  ActionType.DIGEST,
-  ...(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false
-    ? [ActionType.CALL_WEBHOOK]
-    : []),
-];
+export const getExtraActions = () => getExtraAvailableActionsForRuleEditor();
 
 export const createRuleActionSchema = (provider: string) => {
   const supportsMoveFolder = isMicrosoftProvider(provider);

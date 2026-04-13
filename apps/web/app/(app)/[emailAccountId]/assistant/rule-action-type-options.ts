@@ -1,6 +1,9 @@
 import { env } from "@/env";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import {
+  getAvailableActionsForRuleEditor,
+  getExtraAvailableActionsForRuleEditor,
+} from "@/utils/ai/rule/action-availability";
 
 type ActionTypeOption = {
   label: string;
@@ -24,16 +27,22 @@ export function getRuleActionTypeOptions({
 }): ActionTypeOption[] {
   const messagingIsAvailable =
     hasConnectedMessagingChannels || hasAvailableMessagingProviders;
-  const includesExistingActionType = (actionType: ActionType) =>
-    existingActionTypes.includes(actionType);
+  const availableActions = new Set(
+    getAvailableActionsForRuleEditor({
+      provider,
+      existingActionTypes,
+    }),
+  );
+  const extraActions = new Set(
+    getExtraAvailableActionsForRuleEditor(existingActionTypes),
+  );
 
   const options: ActionTypeOption[] = [
     {
       label: labelActionText,
       value: ActionType.LABEL,
     },
-    ...(isMicrosoftProvider(provider) ||
-    includesExistingActionType(ActionType.MOVE_FOLDER)
+    ...(availableActions.has(ActionType.MOVE_FOLDER)
       ? [
           {
             label: "Move to folder",
@@ -41,16 +50,14 @@ export function getRuleActionTypeOptions({
           },
         ]
       : []),
-    ...(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED &&
-    !includesExistingActionType(ActionType.DRAFT_EMAIL) &&
-    !includesExistingActionType(ActionType.DRAFT_MESSAGING_CHANNEL)
-      ? []
-      : [
+    ...(availableActions.has(ActionType.DRAFT_EMAIL)
+      ? [
           {
             label: "Draft reply",
             value: ActionType.DRAFT_EMAIL,
           },
-        ]),
+        ]
+      : []),
     {
       label: "Archive",
       value: ActionType.ARCHIVE,
@@ -59,40 +66,44 @@ export function getRuleActionTypeOptions({
       label: "Mark read",
       value: ActionType.MARK_READ,
     },
-    ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED === false &&
-    !includesExistingActionType(ActionType.REPLY) &&
-    !includesExistingActionType(ActionType.SEND_EMAIL) &&
-    !includesExistingActionType(ActionType.FORWARD)
-      ? []
-      : [
+    ...(availableActions.has(ActionType.REPLY)
+      ? [
           {
             label: "Reply",
             value: ActionType.REPLY,
           },
+        ]
+      : []),
+    ...(availableActions.has(ActionType.SEND_EMAIL)
+      ? [
           {
             label: "Send email",
             value: ActionType.SEND_EMAIL,
           },
+        ]
+      : []),
+    ...(availableActions.has(ActionType.FORWARD)
+      ? [
           {
             label: "Forward",
             value: ActionType.FORWARD,
           },
-        ]),
+        ]
+      : []),
     {
       label: "Mark spam",
       value: ActionType.MARK_SPAM,
     },
-    ...(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED === false &&
-    !includesExistingActionType(ActionType.CALL_WEBHOOK)
-      ? []
-      : [
+    ...(extraActions.has(ActionType.CALL_WEBHOOK)
+      ? [
           {
             label: "Call webhook",
             value: ActionType.CALL_WEBHOOK,
           },
-        ]),
+        ]
+      : []),
     ...(messagingIsAvailable ||
-    includesExistingActionType(ActionType.NOTIFY_MESSAGING_CHANNEL)
+    existingActionTypes.includes(ActionType.NOTIFY_MESSAGING_CHANNEL)
       ? [
           {
             label: "Notify via chat app",
@@ -102,7 +113,7 @@ export function getRuleActionTypeOptions({
       : []),
     ...((systemType === SystemType.COLD_EMAIL &&
       env.NEXT_PUBLIC_IS_RESEND_CONFIGURED) ||
-    includesExistingActionType(ActionType.NOTIFY_SENDER)
+    existingActionTypes.includes(ActionType.NOTIFY_SENDER)
       ? [
           {
             label: "Notify sender",

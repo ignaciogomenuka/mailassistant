@@ -35,7 +35,6 @@ import { AlertError } from "@/components/Alert";
 import { LearnedPatternsDialog } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { getEmailTerminology } from "@/utils/terminology";
 import {
   Dialog,
@@ -52,6 +51,7 @@ import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSect
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
 import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
 import { RuleLoader } from "@/app/(app)/[emailAccountId]/assistant/RuleLoader";
+import { getRuleActionTypeOptions } from "@/app/(app)/[emailAccountId]/assistant/rule-action-type-options";
 import { handleRuleAttachmentSourceSave } from "@/utils/attachments/rule";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
@@ -331,6 +331,10 @@ export function RuleForm({
 
   const conditionalOperator = watch("conditionalOperator");
   const terminology = getEmailTerminology(provider);
+  const existingActionTypes = useMemo(
+    () => rule.actions.map((action) => action.type),
+    [rule.actions],
+  );
 
   const formErrors = useMemo(() => {
     return Object.values(formState.errors)
@@ -342,105 +346,20 @@ export function RuleForm({
     const connectedMessagingChannels = getConnectedRuleNotificationChannels(
       messagingChannelsData?.channels,
     );
-    const messagingIsAvailable =
-      connectedMessagingChannels.length > 0 ||
-      (messagingChannelsData?.availableProviders.length ?? 0) > 0;
-
-    const options: {
-      label: string;
-      value: ActionType;
-      icon: React.ElementType;
-    }[] = [
-      {
-        label: terminology.label.action,
-        value: ActionType.LABEL,
-        icon: getActionIcon(ActionType.LABEL),
-      },
-      ...(isMicrosoftProvider(provider)
-        ? [
-            {
-              label: "Move to folder",
-              value: ActionType.MOVE_FOLDER,
-              icon: getActionIcon(ActionType.MOVE_FOLDER),
-            },
-          ]
-        : []),
-      ...(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
-        ? []
-        : [
-            {
-              label: "Draft reply",
-              value: ActionType.DRAFT_EMAIL,
-              icon: getActionIcon(ActionType.DRAFT_EMAIL),
-            },
-          ]),
-      {
-        label: "Archive",
-        value: ActionType.ARCHIVE,
-        icon: getActionIcon(ActionType.ARCHIVE),
-      },
-      {
-        label: "Mark read",
-        value: ActionType.MARK_READ,
-        icon: getActionIcon(ActionType.MARK_READ),
-      },
-      ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
-        ? [
-            {
-              label: "Reply",
-              value: ActionType.REPLY,
-              icon: getActionIcon(ActionType.REPLY),
-            },
-            {
-              label: "Send email",
-              value: ActionType.SEND_EMAIL,
-              icon: getActionIcon(ActionType.SEND_EMAIL),
-            },
-            {
-              label: "Forward",
-              value: ActionType.FORWARD,
-              icon: getActionIcon(ActionType.FORWARD),
-            },
-          ]
-        : []),
-      {
-        label: "Mark spam",
-        value: ActionType.MARK_SPAM,
-        icon: getActionIcon(ActionType.MARK_SPAM),
-      },
-      ...(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false
-        ? [
-            {
-              label: "Call webhook",
-              value: ActionType.CALL_WEBHOOK,
-              icon: getActionIcon(ActionType.CALL_WEBHOOK),
-            },
-          ]
-        : []),
-      ...(messagingIsAvailable
-        ? [
-            {
-              label: "Notify via chat app",
-              value: ActionType.NOTIFY_MESSAGING_CHANNEL,
-              icon: getActionIcon(ActionType.NOTIFY_MESSAGING_CHANNEL),
-            },
-          ]
-        : []),
-      // NOTIFY_SENDER is only available for cold email rules
-      ...(rule.systemType === SystemType.COLD_EMAIL &&
-      env.NEXT_PUBLIC_IS_RESEND_CONFIGURED
-        ? [
-            {
-              label: "Notify sender",
-              value: ActionType.NOTIFY_SENDER,
-              icon: getActionIcon(ActionType.NOTIFY_SENDER),
-            },
-          ]
-        : []),
-    ];
-
-    return options;
+    return getRuleActionTypeOptions({
+      provider,
+      labelActionText: terminology.label.action,
+      hasConnectedMessagingChannels: connectedMessagingChannels.length > 0,
+      hasAvailableMessagingProviders:
+        (messagingChannelsData?.availableProviders.length ?? 0) > 0,
+      systemType: rule.systemType,
+      existingActionTypes,
+    }).map((option) => ({
+      ...option,
+      icon: getActionIcon(option.value),
+    }));
   }, [
+    existingActionTypes,
     messagingChannelsData?.channels,
     messagingChannelsData?.availableProviders,
     provider,

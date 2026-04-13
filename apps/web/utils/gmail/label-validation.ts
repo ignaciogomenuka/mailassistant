@@ -56,7 +56,6 @@ const GMAIL_RESERVED_LABELS = [
  */
 const GMAIL_LABEL_INVALID_CHARS = [
   "\\", // Backslash
-  "*", // Asterisk
   "+", // Plus sign
   "`", // Backtick
 ] as const;
@@ -82,7 +81,7 @@ type LabelValidationResult = {
  */
 export function validateLabelNameBasic(name: string): LabelValidationResult {
   // Check if empty
-  if (!name || !name.trim()) {
+  if (!name?.trim()) {
     return { valid: false, error: "Label name cannot be empty" };
   }
 

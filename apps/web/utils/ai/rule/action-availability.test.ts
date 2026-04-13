@@ -55,6 +55,18 @@ describe("getAvailableActionsForRuleEditor", () => {
     expect(actions).not.toContain(ActionType.SEND_EMAIL);
     expect(actions).not.toContain(ActionType.FORWARD);
   });
+
+  it("normalizes persisted messaging drafts to the shared draft reply option", () => {
+    mockEnv.autoDraftDisabled = true;
+
+    const actions = getAvailableActionsForRuleEditor({
+      provider: "google",
+      existingActionTypes: [ActionType.DRAFT_MESSAGING_CHANNEL],
+    });
+
+    expect(actions).toContain(ActionType.DRAFT_EMAIL);
+    expect(actions).not.toContain(ActionType.DRAFT_MESSAGING_CHANNEL);
+  });
 });
 
 describe("getExtraAvailableActionsForRuleEditor", () => {

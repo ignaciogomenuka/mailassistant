@@ -15,7 +15,9 @@ export function getAvailableActionsForRuleEditor({
   const supportsMoveFolder =
     isMicrosoftProvider(provider) ||
     includesExistingActionType(ActionType.MOVE_FOLDER);
-  const supportsDraftReply =
+  // The rule editor exposes a single "Draft reply" option for both persisted
+  // draft action variants, so the UI only needs the normalized DRAFT_EMAIL type.
+  const showsDraftReplyOption =
     !env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED ||
     includesExistingActionType(ActionType.DRAFT_EMAIL) ||
     includesExistingActionType(ActionType.DRAFT_MESSAGING_CHANNEL);
@@ -25,7 +27,7 @@ export function getAvailableActionsForRuleEditor({
     ...(supportsMoveFolder ? [ActionType.MOVE_FOLDER] : []),
     ActionType.ARCHIVE,
     ActionType.MARK_READ,
-    ...(supportsDraftReply ? [ActionType.DRAFT_EMAIL] : []),
+    ...(showsDraftReplyOption ? [ActionType.DRAFT_EMAIL] : []),
     ...getAvailableSendActions(existingActionTypes),
     ActionType.MARK_SPAM,
   ] as ActionType[];

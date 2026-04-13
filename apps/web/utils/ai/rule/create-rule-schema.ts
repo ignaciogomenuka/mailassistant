@@ -2,7 +2,6 @@ import { z } from "zod";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";
-import { env } from "@/env";
 import {
   getAvailableActionsForRuleEditor,
   getExtraAvailableActionsForRuleEditor,
@@ -58,7 +57,10 @@ export function getAvailableActions(provider: string) {
 export const getExtraActions = () => getExtraAvailableActionsForRuleEditor();
 
 export const createRuleActionSchema = (provider: string) => {
-  const supportsMoveFolder = isMicrosoftProvider(provider);
+  const allowedActionTypes = new Set([
+    ...getAvailableActionsForRuleEditor({ provider }),
+    ...getExtraAvailableActionsForRuleEditor(),
+  ]);
   const optionalFieldsSchema = createOptionalActionFieldsSchema(provider);
 
   const actionSchemas: [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]] = [
@@ -70,28 +72,29 @@ export const createRuleActionSchema = (provider: string) => {
     createActionObjectSchema(ActionType.MARK_READ, optionalFieldsSchema),
     createActionObjectSchema(ActionType.MARK_SPAM, optionalFieldsSchema),
     createActionObjectSchema(ActionType.DIGEST, optionalFieldsSchema),
-    ...(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
-      ? []
-      : [
-          createActionObjectSchema(
-            ActionType.DRAFT_EMAIL,
-            optionalFieldsSchema,
-          ),
-        ]),
-    ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
+    ...(allowedActionTypes.has(ActionType.DRAFT_EMAIL)
+      ? [createActionObjectSchema(ActionType.DRAFT_EMAIL, optionalFieldsSchema)]
+      : []),
+    ...(allowedActionTypes.has(ActionType.REPLY)
+      ? [createActionObjectSchema(ActionType.REPLY, optionalFieldsSchema)]
+      : []),
+    ...(allowedActionTypes.has(ActionType.FORWARD)
       ? [
-          createActionObjectSchema(ActionType.REPLY, optionalFieldsSchema),
           createActionObjectSchema(
             ActionType.FORWARD,
             createRequiredRecipientFieldsSchema(provider),
           ),
+        ]
+      : []),
+    ...(allowedActionTypes.has(ActionType.SEND_EMAIL)
+      ? [
           createActionObjectSchema(
             ActionType.SEND_EMAIL,
             createRequiredRecipientFieldsSchema(provider),
           ),
         ]
       : []),
-    ...(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false
+    ...(allowedActionTypes.has(ActionType.CALL_WEBHOOK)
       ? [
           createActionObjectSchema(
             ActionType.CALL_WEBHOOK,
@@ -99,7 +102,7 @@ export const createRuleActionSchema = (provider: string) => {
           ),
         ]
       : []),
-    ...(supportsMoveFolder
+    ...(allowedActionTypes.has(ActionType.MOVE_FOLDER)
       ? [
           createActionObjectSchema(
             ActionType.MOVE_FOLDER,

@@ -9,6 +9,7 @@ import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAction } from "next-safe-action/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingContent } from "@/components/LoadingContent";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 export function MultiRuleSetting() {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
@@ -45,7 +46,15 @@ export function MultiRuleSetting() {
 
   return (
     <SettingCard
-      title="Multi-rule selection"
+      title={
+        <div className="flex items-center gap-1.5">
+          <span>Multi-rule selection</span>
+          <TooltipExplanation
+            side="top"
+            text="This only lets the AI return multiple custom rules from the AI selection step. More than one rule can still be applied in some other cases, such as learned-pattern matches, conversation-status rules, or when a deterministic match is combined with an AI match."
+          />
+        </div>
+      }
       description="Allow the AI to select multiple rules for a single email when appropriate."
       right={
         <LoadingContent

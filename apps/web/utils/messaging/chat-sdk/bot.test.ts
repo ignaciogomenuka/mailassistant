@@ -9,6 +9,7 @@ import {
   ensureSlackTeamInstallation,
   hasUnsupportedMessagingAttachment,
   normalizeMessagingAssistantText,
+  normalizeMessagingUserText,
   stripLeadingSlackMention,
 } from "@/utils/messaging/chat-sdk/bot";
 
@@ -82,6 +83,26 @@ describe("normalizeMessagingAssistantText", () => {
     const input =
       "I prepared that reply for you. This draft is pending confirmation.";
     expect(normalizeMessagingAssistantText({ text: input })).toBe(input);
+  });
+});
+
+describe("normalizeMessagingUserText", () => {
+  it("maps standalone affirmative emoji replies to yes", () => {
+    expect(normalizeMessagingUserText({ text: "👍🏽" })).toBe("yes");
+    expect(normalizeMessagingUserText({ text: "✅ ✅" })).toBe("yes");
+  });
+
+  it("maps Slack-style emoji aliases to yes", () => {
+    expect(normalizeMessagingUserText({ text: ":thumbsup:" })).toBe("yes");
+    expect(normalizeMessagingUserText({ text: ":white_check_mark:" })).toBe(
+      "yes",
+    );
+  });
+
+  it("leaves regular text unchanged", () => {
+    expect(
+      normalizeMessagingUserText({ text: "yes please summarize my inbox" }),
+    ).toBe("yes please summarize my inbox");
   });
 });
 

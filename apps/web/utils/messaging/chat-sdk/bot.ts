@@ -75,6 +75,18 @@ const CONNECT_COMMAND_REGEX =
 const PENDING_EMAIL_CONFIRM_ACTION_ID = "acpe";
 const LEGACY_PENDING_EMAIL_CONFIRM_ACTION_ID =
   "assistant_confirm_pending_email";
+const AFFIRMATIVE_EMOJI_REPLY_TOKENS = new Set([
+  "👍",
+  "✅",
+  "☑",
+  "✔",
+  "+1",
+  "thumbsup",
+  "thumbs_up",
+  "white_check_mark",
+  "check",
+  "heavy_check_mark",
+]);
 const UNSUPPORTED_MESSAGING_ATTACHMENT_MESSAGE =
   "I can process images, but I can't access other file types (documents, videos, audio) sent here yet. I can still draft the email text if you share what to write.";
 
@@ -1963,6 +1975,7 @@ async function resolveSlackMessagingContext({
   if (rawEvent.type === "app_mention") {
     messageText = stripLeadingSlackMention(messageText);
   }
+  messageText = normalizeMessagingUserText({ text: messageText });
 
   const hasUnsupportedAttachments = hasUnsupportedMessagingAttachment({
     provider: "slack",
@@ -2085,7 +2098,9 @@ function resolveTeamsIdentity({
   thread: Thread;
   message: Message;
 }): LinkedProviderIdentity | null {
-  const messageText = expandPromptCommand(message.text.trim());
+  const messageText = normalizeMessagingUserText({
+    text: expandPromptCommand(message.text.trim()),
+  });
   const hasAttachments = message.attachments.length > 0;
   if (!messageText && !hasAttachments) return null;
 
@@ -2138,11 +2153,15 @@ function resolveTelegramIdentity({
 }
 
 function getTelegramMessageText(message: Message): string {
-  const plainText = expandPromptCommand(message.text.trim());
+  const plainText = normalizeMessagingUserText({
+    text: expandPromptCommand(message.text.trim()),
+  });
   if (plainText) return plainText;
 
   const rawMessage = message.raw as TelegramRawMessage;
-  return expandPromptCommand(rawMessage.caption?.trim() || "");
+  return normalizeMessagingUserText({
+    text: expandPromptCommand(rawMessage.caption?.trim() || ""),
+  });
 }
 
 const SUPPORTED_IMAGE_MIME_TYPES = new Set([
@@ -2175,8 +2194,7 @@ export function hasUnsupportedMessagingAttachment({
     const rawEvent = message.raw as SlackEvent;
     const files = rawEvent.files || [];
     return files.some(
-      (f: { mimetype?: string }) =>
-        !f.mimetype || !f.mimetype.startsWith("image/"),
+      (f: { mimetype?: string }) => !f.mimetype?.startsWith("image/"),
     );
   }
 
@@ -2513,6 +2531,32 @@ export function normalizeMessagingAssistantText({ text }: { text: string }) {
     /click (?:the )?(?:confirmation|approve|send) button[^.]*\./gi,
     "This draft is pending confirmation.",
   );
+
+  return normalized;
+}
+
+export function normalizeMessagingUserText({ text }: { text: string }) {
+  const normalized = text.trim();
+  if (!normalized) return normalized;
+
+  const tokens = normalized
+    .split(/\s+/)
+    .map((token) =>
+      token
+        .trim()
+        .toLowerCase()
+        .replaceAll(":", "")
+        .replaceAll("\uFE0F", "")
+        .replace(/[\u{1F3FB}-\u{1F3FF}]/gu, ""),
+    )
+    .filter(Boolean);
+
+  if (
+    tokens.length > 0 &&
+    tokens.every((token) => AFFIRMATIVE_EMOJI_REPLY_TOKENS.has(token))
+  ) {
+    return "yes";
+  }
 
   return normalized;
 }

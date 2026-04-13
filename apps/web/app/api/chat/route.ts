@@ -35,9 +35,7 @@ import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard"
 
 export const maxDuration = 120;
 
-type AssistantChatStreamResult = Awaited<
-  ReturnType<typeof aiProcessAssistantChat>
->;
+type AssistantChatResult = Awaited<ReturnType<typeof aiProcessAssistantChat>>;
 
 export const POST = withEmailAccount("chat", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
@@ -247,7 +245,7 @@ export const POST = withEmailAccount("chat", async (request) => {
         let responseMessage: UIMessage | null = null;
 
         if (result.usedForcedNanoModelGuard) {
-          const bufferedResult = await bufferAssistantResponse(result);
+          const bufferedResult = await bufferAssistantResponse(result.stream);
 
           if (hasRenderableAssistantResponse(bufferedResult.responseMessage)) {
             responseMessage = bufferedResult.responseMessage;
@@ -261,13 +259,13 @@ export const POST = withEmailAccount("chat", async (request) => {
             );
 
             responseMessage = await writeAssistantResponse({
-              result: await getAssistantResult(true),
+              stream: (await getAssistantResult(true)).stream,
               writer,
             });
           }
         } else {
           responseMessage = await writeAssistantResponse({
-            result,
+            stream: result.stream,
             writer,
           });
         }
@@ -390,15 +388,15 @@ function buildHiddenInlineActionMessage(
 }
 
 async function writeAssistantResponse({
-  result,
+  stream,
   writer,
 }: {
-  result: AssistantChatStreamResult;
+  stream: AssistantChatResult["stream"];
   writer: { write: (chunk: unknown) => void };
 }) {
   let responseMessage: UIMessage | null = null;
 
-  for await (const chunk of result.toUIMessageStream({
+  for await (const chunk of stream.toUIMessageStream({
     sendFinish: false,
     onFinish: ({ responseMessage: finishedResponseMessage }) => {
       responseMessage = finishedResponseMessage;
@@ -410,11 +408,11 @@ async function writeAssistantResponse({
   return responseMessage;
 }
 
-async function bufferAssistantResponse(result: AssistantChatStreamResult) {
+async function bufferAssistantResponse(stream: AssistantChatResult["stream"]) {
   const chunks: unknown[] = [];
   let responseMessage: UIMessage | null = null;
 
-  for await (const chunk of result.toUIMessageStream({
+  for await (const chunk of stream.toUIMessageStream({
     sendFinish: false,
     onFinish: ({ responseMessage: finishedResponseMessage }) => {
       responseMessage = finishedResponseMessage;

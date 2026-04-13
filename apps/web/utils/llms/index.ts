@@ -720,7 +720,7 @@ export async function toolCallAgentStream({
     });
 
     try {
-      const result = await agent.stream({
+      const stream = await agent.stream({
         messages: hardenedMessages,
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepFinish: onStepFinish
@@ -735,7 +735,7 @@ export async function toolCallAgentStream({
             }
           : undefined,
       });
-      return Object.assign(result, { usedForcedNanoModelGuard });
+      return { stream, usedForcedNanoModelGuard };
     } catch (error) {
       if (nextCandidate && shouldFallbackToNextModel(error)) {
         logger.warn("Tool-call stream failed, trying fallback model", {

@@ -492,19 +492,21 @@ function createAssistantStreamResult({
 } = {}) {
   return {
     usedForcedNanoModelGuard,
-    toUIMessageStream: ({
-      onFinish,
-    }: {
-      onFinish?: (event: {
-        responseMessage: (typeof streamState.finishMessages)[number] | null;
-      }) => void;
-    }) =>
-      (async function* () {
-        onFinish?.({
-          responseMessage: finishMessage,
-        });
-        yield { type: "text-start", id: "part-1" };
-        yield { type: "text-end", id: "part-1" };
-      })(),
+    stream: {
+      toUIMessageStream: ({
+        onFinish,
+      }: {
+        onFinish?: (event: {
+          responseMessage: (typeof streamState.finishMessages)[number] | null;
+        }) => void;
+      }) =>
+        (async function* () {
+          onFinish?.({
+            responseMessage: finishMessage,
+          });
+          yield { type: "text-start", id: "part-1" };
+          yield { type: "text-end", id: "part-1" };
+        })(),
+    },
   };
 }

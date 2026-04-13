@@ -219,60 +219,32 @@ export const POST = withEmailAccount("chat", async (request) => {
   try {
     const inboxStats = await inboxStatsPromise;
     let seenRulesRevision: number | null = null;
-
-    const getAssistantResult = (disableNanoModelGuard = false) =>
-      aiProcessAssistantChat({
-        messages: modelMessages,
-        conversationMessagesForMemory: conversationModelMessages,
-        emailAccountId,
-        user,
-        context,
-        chatId: chat.id,
-        chatLastSeenRulesRevision: chat.lastSeenRulesRevision,
-        chatHasHistory,
-        memories,
-        inboxStats,
-        onRulesStateExposed: (rulesRevision) => {
-          seenRulesRevision = mergeSeenRulesRevision(
-            seenRulesRevision,
-            rulesRevision,
-          );
-        },
-        disableNanoModelGuard,
-        logger: request.logger,
-      });
-
-    const result = await getAssistantResult();
+    const result = await aiProcessAssistantChat({
+      messages: modelMessages,
+      conversationMessagesForMemory: conversationModelMessages,
+      emailAccountId,
+      user,
+      context,
+      chatId: chat.id,
+      chatLastSeenRulesRevision: chat.lastSeenRulesRevision,
+      chatHasHistory,
+      memories,
+      inboxStats,
+      onRulesStateExposed: (rulesRevision) => {
+        seenRulesRevision = mergeSeenRulesRevision(
+          seenRulesRevision,
+          rulesRevision,
+        );
+      },
+      logger: request.logger,
+    });
 
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
-        let responseMessage: UIMessage | null = null;
-
-        if (result.usedForcedNanoModelGuard) {
-          const bufferedResult = await bufferAssistantResponse(result.stream);
-
-          if (hasRenderableAssistantResponse(bufferedResult.responseMessage)) {
-            responseMessage = bufferedResult.responseMessage;
-            for (const chunk of bufferedResult.chunks) {
-              writer.write(chunk);
-            }
-          } else {
-            request.logger.warn(
-              "Assistant chat returned an empty response with nano guard; retrying primary chat model",
-              { chatId: chat.id },
-            );
-
-            responseMessage = await writeAssistantResponse({
-              stream: (await getAssistantResult(true)).stream,
-              writer,
-            });
-          }
-        } else {
-          responseMessage = await writeAssistantResponse({
-            stream: result.stream,
-            writer,
-          });
-        }
+        const responseMessage = await writeAssistantResponse({
+          stream: result,
+          writer,
+        });
 
         const warning = getToolFailureWarning(responseMessage);
         if (!warning) return;
@@ -395,7 +367,7 @@ async function writeAssistantResponse({
   stream,
   writer,
 }: {
-  stream: AssistantChatResult["stream"];
+  stream: AssistantChatResult;
   writer: UIStreamWriter;
 }) {
   let responseMessage: UIMessage | null = null;
@@ -410,22 +382,6 @@ async function writeAssistantResponse({
   }
 
   return responseMessage;
-}
-
-async function bufferAssistantResponse(stream: AssistantChatResult["stream"]) {
-  const chunks: UIMessageChunk[] = [];
-  let responseMessage: UIMessage | null = null;
-
-  for await (const chunk of stream.toUIMessageStream({
-    sendFinish: false,
-    onFinish: ({ responseMessage: finishedResponseMessage }) => {
-      responseMessage = finishedResponseMessage;
-    },
-  })) {
-    chunks.push(chunk);
-  }
-
-  return { chunks, responseMessage };
 }
 
 function isPersistableAssistantMessage(message: UIMessage) {

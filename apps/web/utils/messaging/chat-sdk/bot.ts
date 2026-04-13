@@ -1059,7 +1059,7 @@ async function collectAssistantUiMessage({
   originalMessages: UIMessage[];
   assistantMessageId: string;
 }) {
-  const stream = result.stream.toUIMessageStream<UIMessage>({
+  const stream = result.toUIMessageStream<UIMessage>({
     originalMessages,
     generateMessageId: () => assistantMessageId,
   });

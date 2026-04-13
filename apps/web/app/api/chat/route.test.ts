@@ -419,33 +419,6 @@ describe("chat route rule freshness persistence", () => {
     }
   });
 
-  it("retries with the regular chat model when the nano-guarded response is empty", async () => {
-    const emptyAssistantMessage = {
-      id: "assistant-empty",
-      role: "assistant" as const,
-      parts: [] as Array<{ type: "text"; text: string }>,
-    };
-
-    mockAiProcessAssistantChat
-      .mockResolvedValueOnce(
-        createAssistantStreamResult({
-          finishMessage: emptyAssistantMessage,
-          usedForcedNanoModelGuard: true,
-        }),
-      )
-      .mockResolvedValueOnce(createAssistantStreamResult());
-
-    await POST(createRequest());
-
-    expect(mockAiProcessAssistantChat).toHaveBeenCalledTimes(2);
-    expect(mockAiProcessAssistantChat).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        disableNanoModelGuard: true,
-      }),
-    );
-  });
-
   it("does not persist empty assistant messages", async () => {
     streamState.finishMessages = [
       {
@@ -485,28 +458,23 @@ function createRequest() {
 
 function createAssistantStreamResult({
   finishMessage = streamState.finishMessages[0] ?? null,
-  usedForcedNanoModelGuard = false,
 }: {
   finishMessage?: (typeof streamState.finishMessages)[number] | null;
-  usedForcedNanoModelGuard?: boolean;
 } = {}) {
   return {
-    usedForcedNanoModelGuard,
-    stream: {
-      toUIMessageStream: ({
-        onFinish,
-      }: {
-        onFinish?: (event: {
-          responseMessage: (typeof streamState.finishMessages)[number] | null;
-        }) => void;
-      }) =>
-        (async function* () {
-          onFinish?.({
-            responseMessage: finishMessage,
-          });
-          yield { type: "text-start", id: "part-1" };
-          yield { type: "text-end", id: "part-1" };
-        })(),
-    },
+    toUIMessageStream: ({
+      onFinish,
+    }: {
+      onFinish?: (event: {
+        responseMessage: (typeof streamState.finishMessages)[number] | null;
+      }) => void;
+    }) =>
+      (async function* () {
+        onFinish?.({
+          responseMessage: finishMessage,
+        });
+        yield { type: "text-start", id: "part-1" };
+        yield { type: "text-end", id: "part-1" };
+      })(),
   };
 }

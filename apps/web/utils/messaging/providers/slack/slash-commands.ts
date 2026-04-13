@@ -211,7 +211,7 @@ async function runSlackSlashCommandAi({
     logger,
   });
 
-  const stream = result.stream.toUIMessageStream<UIMessage>({
+  const stream = result.toUIMessageStream<UIMessage>({
     originalMessages: [...existingMessages, newUserMessage],
     generateMessageId: () => assistantMessageId,
   });

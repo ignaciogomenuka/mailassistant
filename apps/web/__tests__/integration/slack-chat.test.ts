@@ -292,15 +292,81 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           },
         },
       );
-      await Promise.all(backgroundTasks);
 
       expect(response.status).toBe(200);
+      await vi.waitFor(() => {
+        expect(backgroundTasks.length).toBeGreaterThan(0);
+      });
+      await Promise.all(backgroundTasks);
       expect(aiProcessAssistantChatMock).toHaveBeenCalledTimes(1);
 
       const modelMessages = aiProcessAssistantChatMock.mock.calls[0]?.[0]
         ?.messages as Array<unknown>;
       expect(JSON.stringify(modelMessages.at(-1))).toContain('"text":"yes"');
       expect(JSON.stringify(modelMessages.at(-1))).not.toContain("thumbsup");
+    });
+
+    test("treats an affirmative Slack reaction as yes", async () => {
+      const { ensureSlackTeamInstallation, getMessagingChatSdkBot } =
+        await import("@/utils/messaging/chat-sdk/bot");
+
+      await ensureSlackTeamInstallation(teamId, logger);
+
+      const parent = await emulatorClient.chat.postMessage({
+        channel: channelId,
+        text: "Parent message",
+      });
+      const ts = parent.ts!;
+
+      const body = JSON.stringify({
+        type: "event_callback",
+        team_id: teamId,
+        api_app_id: "AAPP123",
+        event_id: "Ev124",
+        event_time: Math.floor(Date.now() / 1000),
+        authorizations: [
+          {
+            team_id: teamId,
+            user_id: "UAPP123",
+            is_bot: false,
+            is_enterprise_install: false,
+          },
+        ],
+        event: {
+          type: "reaction_added",
+          user: userId,
+          reaction: "+1",
+          item_user: "UAPP123",
+          item: {
+            type: "message",
+            channel: channelId,
+            ts,
+          },
+          event_ts: `${Date.now() / 1000}`,
+        },
+      });
+
+      const { bot } = getMessagingChatSdkBot();
+      const backgroundTasks: Promise<unknown>[] = [];
+      const response = await bot.webhooks.slack(
+        createSignedSlackRequest(body),
+        {
+          waitUntil: (promise) => {
+            backgroundTasks.push(promise);
+          },
+        },
+      );
+
+      expect(response.status).toBe(200);
+      await vi.waitFor(() => {
+        expect(backgroundTasks.length).toBeGreaterThan(0);
+      });
+      await Promise.all(backgroundTasks);
+      expect(aiProcessAssistantChatMock).toHaveBeenCalledTimes(1);
+
+      const modelMessages = aiProcessAssistantChatMock.mock.calls[0]?.[0]
+        ?.messages as Array<unknown>;
+      expect(JSON.stringify(modelMessages.at(-1))).toContain('"text":"yes"');
     });
   },
 );

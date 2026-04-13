@@ -20,7 +20,6 @@ import {
   type Adapter,
   type Attachment,
   type CardChild,
-  emoji,
   Message,
   type ReactionEvent,
   type Thread,
@@ -420,11 +419,13 @@ function registerMessagingHandlers({
     });
   });
 
-  bot.onReaction([emoji.thumbs_up, emoji.check], async (event) => {
+  bot.onReaction(async (event) => {
     if (!event.added) return;
+    if (!isAffirmativeReactionEvent(event)) return;
 
     const provider = event.thread.adapter.name;
-    if (provider !== "teams" && provider !== "telegram") return;
+    if (provider !== "slack" && provider !== "teams" && provider !== "telegram")
+      return;
 
     const handlerLogger = getHandlerLogger();
     const handled = await processMessagingAssistantMessage({
@@ -1946,17 +1947,17 @@ async function resolveSlackMessagingContext({
   const teamId = rawEvent.team_id ?? rawEvent.team;
   const userId = message.author.userId;
 
-  if (!teamId || !userId) return null;
+  if (!userId) return null;
 
   const { channel, threadTs } = slackAdapter.decodeThreadId(thread.id);
 
-  const candidates = await prisma.messagingChannel.findMany({
+  let candidates = await prisma.messagingChannel.findMany({
     where: {
       provider: MessagingProvider.SLACK,
-      teamId,
       isConnected: true,
       accessToken: { not: null },
       providerUserId: userId,
+      ...(teamId ? { teamId } : {}),
     },
     select: {
       id: true,
@@ -1975,6 +1976,16 @@ async function resolveSlackMessagingContext({
       },
     },
   });
+
+  if (!teamId && !thread.isDM) {
+    candidates = candidates.filter((candidate) =>
+      candidate.routes.some(
+        (route) =>
+          route.targetType === MessagingRouteTargetType.CHANNEL &&
+          route.targetId === channel,
+      ),
+    );
+  }
 
   if (candidates.length === 0) {
     await sendUnauthorizedMessage({ thread, teamId, logger });
@@ -2335,7 +2346,7 @@ async function resolveSlackMessagingChannel({
   chatThreadTs: string | undefined;
   isDirectMessage: boolean;
   logger: Logger;
-  teamId: string;
+  teamId?: string | null;
   thread: MessagingThread;
 }): Promise<SlackCandidate | null> {
   if (!isDirectMessage) {
@@ -2412,7 +2423,7 @@ async function sendUnauthorizedMessage({
   logger,
 }: {
   thread: MessagingThread;
-  teamId: string;
+  teamId?: string | null;
   logger: Logger;
 }): Promise<void> {
   await postMessagingThreadMessage({
@@ -2424,7 +2435,9 @@ async function sendUnauthorizedMessage({
     logMeta: { teamId },
   });
 
-  logger.info("Unauthorized messaging user attempted bot access", { teamId });
+  logger.info("Unauthorized messaging user attempted bot access", {
+    ...(teamId ? { teamId } : {}),
+  });
 }
 
 async function sendLinkRequiredMessage({
@@ -2590,15 +2603,26 @@ export function normalizeMessagingUserText({ text }: { text: string }) {
   const normalized = text.trim();
   if (!normalized) return normalized;
 
-  const tokens = normalized
-    .split(/\s+/)
-    .map((token) => normalizeAffirmativeEmojiToken(token));
-
-  if (tokens.length > 0 && tokens.every(Boolean)) {
+  if (
+    normalized
+      .split(/\s+/)
+      .every((token) => Boolean(normalizeAffirmativeEmojiToken(token)))
+  ) {
     return "yes";
   }
 
   return normalized;
+}
+
+function isAffirmativeReactionEvent(event: ReactionEvent) {
+  const rawEmoji = event.rawEmoji.trim().toLowerCase();
+  const emojiName = event.emoji.name.trim().toLowerCase();
+
+  return (
+    AFFIRMATIVE_SLACK_EMOJI_ALIASES.has(rawEmoji) ||
+    AFFIRMATIVE_SLACK_EMOJI_ALIASES.has(emojiName) ||
+    Boolean(normalizeAffirmativeEmojiToken(event.rawEmoji))
+  );
 }
 
 function normalizeAffirmativeEmojiToken(token: string) {

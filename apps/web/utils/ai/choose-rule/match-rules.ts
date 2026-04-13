@@ -560,6 +560,8 @@ async function findMatchingRulesWithReasons(
       reason: fullResult.reason,
     };
 
+    // Build combined matches: update existing matches with AI reasons if AI also chose them,
+    // and append new AI-selected matches
     const aiRuleIds = new Set(result.rules.map((r) => r.id));
 
     const combinedMatches = [

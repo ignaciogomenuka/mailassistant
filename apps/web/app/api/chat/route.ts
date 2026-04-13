@@ -35,12 +35,6 @@ import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard"
 
 export const maxDuration = 120;
 
-type AssistantChatResult = Awaited<ReturnType<typeof aiProcessAssistantChat>>;
-type UIStreamWriter = Parameters<
-  NonNullable<Parameters<typeof createUIMessageStream>[0]["execute"]>
->[0]["writer"];
-type UIMessageChunk = Parameters<UIStreamWriter["write"]>[0];
-
 export const POST = withEmailAccount("chat", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
@@ -241,10 +235,16 @@ export const POST = withEmailAccount("chat", async (request) => {
 
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
-        const responseMessage = await writeAssistantResponse({
-          stream: result,
-          writer,
-        });
+        let responseMessage: UIMessage | null = null;
+
+        for await (const chunk of result.toUIMessageStream({
+          sendFinish: false,
+          onFinish: ({ responseMessage: finishedResponseMessage }) => {
+            responseMessage = finishedResponseMessage;
+          },
+        })) {
+          writer.write(chunk);
+        }
 
         const warning = getToolFailureWarning(responseMessage);
         if (!warning) return;
@@ -361,27 +361,6 @@ function buildHiddenInlineActionMessage(
     role: "system" as const,
     parts: [{ type: "text" as const, text }],
   } satisfies UIMessage;
-}
-
-async function writeAssistantResponse({
-  stream,
-  writer,
-}: {
-  stream: AssistantChatResult;
-  writer: UIStreamWriter;
-}) {
-  let responseMessage: UIMessage | null = null;
-
-  for await (const chunk of stream.toUIMessageStream({
-    sendFinish: false,
-    onFinish: ({ responseMessage: finishedResponseMessage }) => {
-      responseMessage = finishedResponseMessage;
-    },
-  })) {
-    writer.write(chunk);
-  }
-
-  return responseMessage;
 }
 
 function isPersistableAssistantMessage(message: UIMessage) {

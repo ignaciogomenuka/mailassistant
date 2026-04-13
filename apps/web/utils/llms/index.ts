@@ -716,7 +716,7 @@ export async function toolCallAgentStream({
     });
 
     try {
-      const stream = await agent.stream({
+      return await agent.stream({
         messages: hardenedMessages,
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepFinish: onStepFinish
@@ -731,7 +731,6 @@ export async function toolCallAgentStream({
             }
           : undefined,
       });
-      return stream;
     } catch (error) {
       if (nextCandidate && shouldFallbackToNextModel(error)) {
         logger.warn("Tool-call stream failed, trying fallback model", {
@@ -931,32 +930,7 @@ async function getCostControlledModelOptions({
       nextModel: nanoModelOptions.modelName,
     });
 
-    const fallbackModels = [
-      {
-        provider: modelOptions.provider,
-        modelName: modelOptions.modelName,
-        model: modelOptions.model,
-        providerOptions: modelOptions.providerOptions,
-      },
-      ...modelOptions.fallbackModels,
-      ...nanoModelOptions.fallbackModels,
-    ].filter(
-      (fallback, index, allFallbacks) =>
-        allFallbacks.findIndex(
-          (candidate) =>
-            candidate.provider === fallback.provider &&
-            candidate.modelName === fallback.modelName,
-        ) === index &&
-        !(
-          fallback.provider === nanoModelOptions.provider &&
-          fallback.modelName === nanoModelOptions.modelName
-        ),
-    );
-
-    return {
-      ...nanoModelOptions,
-      fallbackModels,
-    };
+    return nanoModelOptions;
   } catch (error) {
     logger.error("Failed to resolve nano model during usage guard", {
       label,

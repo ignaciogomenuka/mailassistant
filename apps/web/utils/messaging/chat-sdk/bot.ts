@@ -21,7 +21,7 @@ import {
   type Attachment,
   type CardChild,
   emoji,
-  type Message,
+  Message,
   type ReactionEvent,
   type Thread,
 } from "chat";
@@ -102,6 +102,7 @@ const SLACK_ASSISTANT_SUGGESTED_PROMPTS = [
 ];
 
 type SupportedPlatform = MessagingPlatform;
+type MessagingThread = Thread<unknown, unknown>;
 
 type MessagingChatSdkContext = {
   bot: Chat<Record<string, Adapter>>;
@@ -487,7 +488,7 @@ async function subscribeMessagingThreadSafely({
   thread,
   logger,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   logger: Logger;
 }) {
   try {
@@ -508,7 +509,7 @@ async function processMessagingAssistantMessage({
   logger,
 }: {
   adapters: MessagingAdapters;
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
   logger: Logger;
 }): Promise<boolean> {
@@ -986,7 +987,7 @@ async function postPendingEmailCard({
   provider,
   logger,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   chatMessageId: string;
   part: PendingEmailToolPart;
   provider: SupportedPlatform;
@@ -1580,7 +1581,7 @@ async function startSlackProcessingReaction({
   logger,
 }: {
   adapters: MessagingAdapters;
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
   logger: Logger;
 }): Promise<(() => Promise<void>) | null> {
@@ -1634,7 +1635,7 @@ async function handleMessagingLinkCommand({
   message,
   logger,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
   logger: Logger;
 }): Promise<boolean> {
@@ -1751,7 +1752,7 @@ async function handleSwitchCommand({
   message,
   logger,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
   logger: Logger;
 }): Promise<boolean> {
@@ -1864,7 +1865,7 @@ async function handleHelpCommand({
   message,
   logger,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
   logger: Logger;
 }): Promise<boolean> {
@@ -1895,7 +1896,7 @@ async function resolveMessagingContext({
   logger,
 }: {
   adapters: MessagingAdapters;
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
   logger: Logger;
 }): Promise<ResolvedMessagingContext | null> {
@@ -1935,7 +1936,7 @@ async function resolveSlackMessagingContext({
   logger,
 }: {
   slackAdapter: SlackAdapter | undefined;
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
   logger: Logger;
 }): Promise<ResolvedMessagingContext | null> {
@@ -2030,7 +2031,7 @@ async function resolveLinkedProviderMessagingContext({
   provider: "teams" | "telegram";
   identity: LinkedProviderIdentity | null;
   message: Message;
-  thread: Thread;
+  thread: MessagingThread;
   logger: Logger;
 }): Promise<ResolvedMessagingContext | null> {
   if (!identity) return null;
@@ -2116,7 +2117,7 @@ function resolveTeamsIdentity({
   thread,
   message,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
 }): LinkedProviderIdentity | null {
   const messageText = normalizeMessagingUserText({
@@ -2335,7 +2336,7 @@ async function resolveSlackMessagingChannel({
   isDirectMessage: boolean;
   logger: Logger;
   teamId: string;
-  thread: Thread;
+  thread: MessagingThread;
 }): Promise<SlackCandidate | null> {
   if (!isDirectMessage) {
     const channelMatch = candidates.find((candidate) =>
@@ -2410,7 +2411,7 @@ async function sendUnauthorizedMessage({
   teamId,
   logger,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   teamId: string;
   logger: Logger;
 }): Promise<void> {
@@ -2432,7 +2433,7 @@ async function sendLinkRequiredMessage({
   logger,
 }: {
   provider: "teams" | "telegram";
-  thread: Thread;
+  thread: MessagingThread;
   logger: Logger;
 }): Promise<void> {
   const providerName = provider === "teams" ? "Teams" : "Telegram";
@@ -2452,7 +2453,7 @@ async function sendDmRequiredMessage({
   logger,
 }: {
   provider: "teams" | "telegram";
-  thread: Thread;
+  thread: MessagingThread;
   logger: Logger;
 }): Promise<void> {
   const providerName = provider === "teams" ? "Teams" : "Telegram";
@@ -2470,7 +2471,7 @@ async function sendUnlinkedChannelMessage({
   thread,
   logger,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   logger: Logger;
 }): Promise<void> {
   await postMessagingThreadMessage({
@@ -2489,7 +2490,7 @@ async function postMessagingThreadMessage({
   errorLogMessage,
   logMeta,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   logger: Logger;
   message: string;
   errorLogMessage: string;
@@ -2561,7 +2562,7 @@ export function buildAffirmativeReactionMessage({
 }: {
   event: ReactionEvent;
 }) {
-  return {
+  return new Message({
     id: `reaction:${event.threadId}:${event.messageId}:${event.user.userId}:${event.emoji.name}`,
     threadId: event.threadId,
     text: "yes",
@@ -2582,7 +2583,7 @@ export function buildAffirmativeReactionMessage({
     },
     attachments: [],
     links: [],
-  } as Message;
+  });
 }
 
 export function normalizeMessagingUserText({ text }: { text: string }) {

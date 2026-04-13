@@ -592,6 +592,7 @@ export async function toolCallAgentStream({
   providerOptions: requestProviderOptions,
   onFinish,
   onStepFinish,
+  disableNanoModelGuard,
 }: {
   userAi: UserAIFields;
   modelType?: ModelType;
@@ -608,14 +609,17 @@ export async function toolCallAgentStream({
   providerOptions?: LLMProviderOptions;
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
+  disableNanoModelGuard?: boolean;
 }) {
-  const { modelOptions, modelCandidates } = await resolveModelCandidates({
-    modelOptions: getModel(userAi, modelType),
-    userEmail,
-    userId,
-    emailAccountId,
-    label,
-  });
+  const { modelOptions, modelCandidates, usedForcedNanoModelGuard } =
+    await resolveModelCandidates({
+      modelOptions: getModel(userAi, modelType),
+      userEmail,
+      userId,
+      emailAccountId,
+      label,
+      disableNanoModelGuard,
+    });
   const hardenedMessages = applyPromptHardeningToMessages({
     messages,
     promptHardening,
@@ -716,7 +720,7 @@ export async function toolCallAgentStream({
     });
 
     try {
-      return await agent.stream({
+      const result = await agent.stream({
         messages: hardenedMessages,
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepFinish: onStepFinish
@@ -731,6 +735,7 @@ export async function toolCallAgentStream({
             }
           : undefined,
       });
+      return Object.assign(result, { usedForcedNanoModelGuard });
     } catch (error) {
       if (nextCandidate && shouldFallbackToNextModel(error)) {
         logger.warn("Tool-call stream failed, trying fallback model", {
@@ -862,13 +867,25 @@ async function getCostControlledModelOptions({
   userId,
   emailAccountId,
   label,
+  disableNanoModelGuard,
 }: {
   modelOptions: SelectModel;
   userEmail: string;
   userId?: string;
   emailAccountId?: string;
   label: string;
-}): Promise<SelectModel> {
+  disableNanoModelGuard?: boolean;
+}): Promise<{
+  modelOptions: SelectModel;
+  usedForcedNanoModelGuard: boolean;
+}> {
+  if (disableNanoModelGuard) {
+    return {
+      modelOptions,
+      usedForcedNanoModelGuard: false,
+    };
+  }
+
   const guard = await shouldForceNanoModel({
     userEmail,
     hasUserApiKey: modelOptions.hasUserApiKey,
@@ -877,7 +894,12 @@ async function getCostControlledModelOptions({
     emailAccountId,
   });
 
-  if (!guard.shouldForce) return modelOptions;
+  if (!guard.shouldForce) {
+    return {
+      modelOptions,
+      usedForcedNanoModelGuard: false,
+    };
+  }
 
   try {
     const nanoModelOptions = getModel(NO_USER_AI_FIELDS, "nano");
@@ -902,14 +924,20 @@ async function getCostControlledModelOptions({
           resolvedModel: nanoModelOptions.modelName,
         },
       );
-      return modelOptions;
+      return {
+        modelOptions,
+        usedForcedNanoModelGuard: false,
+      };
     }
 
     if (
       nanoModelOptions.provider === modelOptions.provider &&
       nanoModelOptions.modelName === modelOptions.modelName
     ) {
-      return modelOptions;
+      return {
+        modelOptions,
+        usedForcedNanoModelGuard: false,
+      };
     }
 
     logger.info("Switching to nano model due to weekly AI spend", {
@@ -924,7 +952,35 @@ async function getCostControlledModelOptions({
       nextModel: nanoModelOptions.modelName,
     });
 
-    return nanoModelOptions;
+    const fallbackModels = [
+      {
+        provider: modelOptions.provider,
+        modelName: modelOptions.modelName,
+        model: modelOptions.model,
+        providerOptions: modelOptions.providerOptions,
+      },
+      ...modelOptions.fallbackModels,
+      ...nanoModelOptions.fallbackModels,
+    ].filter(
+      (fallback, index, allFallbacks) =>
+        allFallbacks.findIndex(
+          (candidate) =>
+            candidate.provider === fallback.provider &&
+            candidate.modelName === fallback.modelName,
+        ) === index &&
+        !(
+          fallback.provider === nanoModelOptions.provider &&
+          fallback.modelName === nanoModelOptions.modelName
+        ),
+    );
+
+    return {
+      modelOptions: {
+        ...nanoModelOptions,
+        fallbackModels,
+      },
+      usedForcedNanoModelGuard: true,
+    };
   } catch (error) {
     logger.error("Failed to resolve nano model during usage guard", {
       label,
@@ -932,7 +988,10 @@ async function getCostControlledModelOptions({
       emailAccountId,
       error,
     });
-    return modelOptions;
+    return {
+      modelOptions,
+      usedForcedNanoModelGuard: false,
+    };
   }
 }
 
@@ -942,24 +1001,33 @@ async function resolveModelCandidates({
   userId,
   emailAccountId,
   label,
+  disableNanoModelGuard,
 }: {
   modelOptions: SelectModel;
   userEmail: string;
   userId?: string;
   emailAccountId?: string;
   label: string;
-}): Promise<{ modelOptions: SelectModel; modelCandidates: ResolvedModel[] }> {
-  const effectiveModelOptions = await getCostControlledModelOptions({
-    modelOptions,
-    userEmail,
-    userId,
-    emailAccountId,
-    label,
-  });
+  disableNanoModelGuard?: boolean;
+}): Promise<{
+  modelOptions: SelectModel;
+  modelCandidates: ResolvedModel[];
+  usedForcedNanoModelGuard: boolean;
+}> {
+  const { modelOptions: effectiveModelOptions, usedForcedNanoModelGuard } =
+    await getCostControlledModelOptions({
+      modelOptions,
+      userEmail,
+      userId,
+      emailAccountId,
+      label,
+      disableNanoModelGuard,
+    });
 
   return {
     modelOptions: effectiveModelOptions,
     modelCandidates: getModelCandidates(effectiveModelOptions),
+    usedForcedNanoModelGuard,
   };
 }
 

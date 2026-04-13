@@ -67,6 +67,7 @@ export async function aiProcessAssistantChat({
   messagingPlatform,
   onRulesStateExposed,
   onStepFinish,
+  disableNanoModelGuard = false,
   logger,
 }: {
   messages: ModelMessage[];
@@ -83,6 +84,7 @@ export async function aiProcessAssistantChat({
   messagingPlatform?: MessagingPlatform;
   onRulesStateExposed?: (rulesRevision: number) => void;
   onStepFinish?: AssistantChatOnStepFinish;
+  disableNanoModelGuard?: boolean;
   logger: Logger;
 }) {
   if (chatLastSeenRulesRevision !== undefined && chatHasHistory === undefined) {
@@ -297,6 +299,7 @@ export async function aiProcessAssistantChat({
     },
     maxSteps: 10,
     tools: allTools,
+    disableNanoModelGuard,
   });
 
   return result;

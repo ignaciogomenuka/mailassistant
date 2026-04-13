@@ -35,6 +35,10 @@ import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard"
 
 export const maxDuration = 120;
 
+type AssistantChatStreamResult = Awaited<
+  ReturnType<typeof aiProcessAssistantChat>
+>;
+
 export const POST = withEmailAccount("chat", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
@@ -214,37 +218,58 @@ export const POST = withEmailAccount("chat", async (request) => {
     const inboxStats = await inboxStatsPromise;
     let seenRulesRevision: number | null = null;
 
-    const result = await aiProcessAssistantChat({
-      messages: modelMessages,
-      conversationMessagesForMemory: conversationModelMessages,
-      emailAccountId,
-      user,
-      context,
-      chatId: chat.id,
-      chatLastSeenRulesRevision: chat.lastSeenRulesRevision,
-      chatHasHistory,
-      memories,
-      inboxStats,
-      onRulesStateExposed: (rulesRevision) => {
-        seenRulesRevision = mergeSeenRulesRevision(
-          seenRulesRevision,
-          rulesRevision,
-        );
-      },
-      logger: request.logger,
-    });
+    const getAssistantResult = (disableNanoModelGuard = false) =>
+      aiProcessAssistantChat({
+        messages: modelMessages,
+        conversationMessagesForMemory: conversationModelMessages,
+        emailAccountId,
+        user,
+        context,
+        chatId: chat.id,
+        chatLastSeenRulesRevision: chat.lastSeenRulesRevision,
+        chatHasHistory,
+        memories,
+        inboxStats,
+        onRulesStateExposed: (rulesRevision) => {
+          seenRulesRevision = mergeSeenRulesRevision(
+            seenRulesRevision,
+            rulesRevision,
+          );
+        },
+        disableNanoModelGuard,
+        logger: request.logger,
+      });
+
+    const result = await getAssistantResult();
 
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
         let responseMessage: UIMessage | null = null;
 
-        for await (const chunk of result.toUIMessageStream({
-          sendFinish: false,
-          onFinish: ({ responseMessage: finishedResponseMessage }) => {
-            responseMessage = finishedResponseMessage;
-          },
-        })) {
-          writer.write(chunk);
+        if (result.usedForcedNanoModelGuard) {
+          const bufferedResult = await bufferAssistantResponse(result);
+
+          if (hasRenderableAssistantResponse(bufferedResult.responseMessage)) {
+            responseMessage = bufferedResult.responseMessage;
+            for (const chunk of bufferedResult.chunks) {
+              writer.write(chunk);
+            }
+          } else {
+            request.logger.warn(
+              "Assistant chat returned an empty response with nano guard; retrying primary chat model",
+              { chatId: chat.id },
+            );
+
+            responseMessage = await writeAssistantResponse({
+              result: await getAssistantResult(true),
+              writer,
+            });
+          }
+        } else {
+          responseMessage = await writeAssistantResponse({
+            result,
+            writer,
+          });
         }
 
         const warning = getToolFailureWarning(responseMessage);
@@ -260,7 +285,20 @@ export const POST = withEmailAccount("chat", async (request) => {
         writer.write({ type: "text-end", id: warningPartId });
       },
       onFinish: async ({ messages }) => {
-        await saveChatMessages(messages, chat.id, request.logger);
+        const persistableMessages = messages.filter(
+          isPersistableAssistantMessage,
+        );
+
+        if (persistableMessages.length < messages.length) {
+          request.logger.error("Skipping empty assistant chat messages", {
+            chatId: chat.id,
+            skippedCount: messages.length - persistableMessages.length,
+          });
+        }
+
+        if (persistableMessages.length > 0) {
+          await saveChatMessages(persistableMessages, chat.id, request.logger);
+        }
 
         if (seenRulesRevision != null) {
           await saveLastSeenRulesRevision({
@@ -349,4 +387,59 @@ function buildHiddenInlineActionMessage(
     role: "system" as const,
     parts: [{ type: "text" as const, text }],
   } satisfies UIMessage;
+}
+
+async function writeAssistantResponse({
+  result,
+  writer,
+}: {
+  result: AssistantChatStreamResult;
+  writer: { write: (chunk: unknown) => void };
+}) {
+  let responseMessage: UIMessage | null = null;
+
+  for await (const chunk of result.toUIMessageStream({
+    sendFinish: false,
+    onFinish: ({ responseMessage: finishedResponseMessage }) => {
+      responseMessage = finishedResponseMessage;
+    },
+  })) {
+    writer.write(chunk);
+  }
+
+  return responseMessage;
+}
+
+async function bufferAssistantResponse(result: AssistantChatStreamResult) {
+  const chunks: unknown[] = [];
+  let responseMessage: UIMessage | null = null;
+
+  for await (const chunk of result.toUIMessageStream({
+    sendFinish: false,
+    onFinish: ({ responseMessage: finishedResponseMessage }) => {
+      responseMessage = finishedResponseMessage;
+    },
+  })) {
+    chunks.push(chunk);
+  }
+
+  return { chunks, responseMessage };
+}
+
+function isPersistableAssistantMessage(message: UIMessage) {
+  if (message.role !== "assistant") return true;
+
+  return hasRenderableAssistantResponse(message);
+}
+
+function hasRenderableAssistantResponse(
+  message: Pick<UIMessage, "parts"> | null | undefined,
+) {
+  const parts = message?.parts;
+  if (!parts?.length) return false;
+
+  return parts.some((part) => {
+    if (part.type !== "text") return true;
+    return part.text.trim().length > 0;
+  });
 }

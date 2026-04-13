@@ -418,6 +418,52 @@ describe("chat route rule freshness persistence", () => {
       consoleErrorSpy.mockRestore();
     }
   });
+
+  it("retries with the regular chat model when the nano-guarded response is empty", async () => {
+    const emptyAssistantMessage = {
+      id: "assistant-empty",
+      role: "assistant" as const,
+      parts: [] as Array<{ type: "text"; text: string }>,
+    };
+
+    mockAiProcessAssistantChat
+      .mockResolvedValueOnce(
+        createAssistantStreamResult({
+          finishMessage: emptyAssistantMessage,
+          usedForcedNanoModelGuard: true,
+        }),
+      )
+      .mockResolvedValueOnce(createAssistantStreamResult());
+
+    await POST(createRequest());
+
+    expect(mockAiProcessAssistantChat).toHaveBeenCalledTimes(2);
+    expect(mockAiProcessAssistantChat).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        disableNanoModelGuard: true,
+      }),
+    );
+  });
+
+  it("does not persist empty assistant messages", async () => {
+    streamState.finishMessages = [
+      {
+        id: "assistant-empty",
+        role: "assistant",
+        parts: [],
+      },
+    ];
+    mockAiProcessAssistantChat.mockResolvedValueOnce(
+      createAssistantStreamResult({
+        finishMessage: streamState.finishMessages[0],
+      }),
+    );
+
+    await POST(createRequest());
+
+    expect(prisma.chatMessage.createMany).not.toHaveBeenCalled();
+  });
 });
 
 function createRequest() {
@@ -437,8 +483,15 @@ function createRequest() {
   });
 }
 
-function createAssistantStreamResult() {
+function createAssistantStreamResult({
+  finishMessage = streamState.finishMessages[0] ?? null,
+  usedForcedNanoModelGuard = false,
+}: {
+  finishMessage?: (typeof streamState.finishMessages)[number] | null;
+  usedForcedNanoModelGuard?: boolean;
+} = {}) {
   return {
+    usedForcedNanoModelGuard,
     toUIMessageStream: ({
       onFinish,
     }: {
@@ -448,7 +501,7 @@ function createAssistantStreamResult() {
     }) =>
       (async function* () {
         onFinish?.({
-          responseMessage: streamState.finishMessages[0] ?? null,
+          responseMessage: finishMessage,
         });
         yield { type: "text-start", id: "part-1" };
         yield { type: "text-end", id: "part-1" };

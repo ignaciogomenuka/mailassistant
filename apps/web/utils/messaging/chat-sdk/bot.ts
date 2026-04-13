@@ -76,8 +76,8 @@ const CONNECT_COMMAND_REGEX =
 const PENDING_EMAIL_CONFIRM_ACTION_ID = "acpe";
 const LEGACY_PENDING_EMAIL_CONFIRM_ACTION_ID =
   "assistant_confirm_pending_email";
-const AFFIRMATIVE_EMOJI_REPLY_TOKENS = new Set(["👍", "✅", "☑", "✔", "+1"]);
-const AFFIRMATIVE_SLACK_EMOJI_ALIASES = new Set([
+const AFFIRMATIVE_REACTION_EMOJI_TOKENS = new Set(["👍", "✅", "☑", "✔"]);
+const AFFIRMATIVE_REACTION_ALIASES = new Set([
   "+1",
   "thumbsup",
   "thumbs_up",
@@ -2600,47 +2600,29 @@ export function buildAffirmativeReactionMessage({
 }
 
 export function normalizeMessagingUserText({ text }: { text: string }) {
-  const normalized = text.trim();
-  if (!normalized) return normalized;
-
-  if (
-    normalized
-      .split(/\s+/)
-      .every((token) => Boolean(normalizeAffirmativeEmojiToken(token)))
-  ) {
-    return "yes";
-  }
-
-  return normalized;
+  return text.trim();
 }
 
 function isAffirmativeReactionEvent(event: ReactionEvent) {
-  const rawEmoji = event.rawEmoji.trim().toLowerCase();
-  const emojiName = event.emoji.name.trim().toLowerCase();
-
   return (
-    AFFIRMATIVE_SLACK_EMOJI_ALIASES.has(rawEmoji) ||
-    AFFIRMATIVE_SLACK_EMOJI_ALIASES.has(emojiName) ||
-    Boolean(normalizeAffirmativeEmojiToken(event.rawEmoji))
+    isAffirmativeReactionToken(event.rawEmoji) ||
+    isAffirmativeReactionToken(event.emoji.name)
   );
 }
 
-function normalizeAffirmativeEmojiToken(token: string) {
+function isAffirmativeReactionToken(token: string) {
   const trimmed = token.trim();
-  if (!trimmed) return null;
+  if (!trimmed) return false;
 
-  const colonAliasMatch = trimmed.match(/^:([a-z0-9_+-]+):$/i);
-  if (colonAliasMatch?.[1]) {
-    const alias = colonAliasMatch[1].toLowerCase();
-    return AFFIRMATIVE_SLACK_EMOJI_ALIASES.has(alias) ? alias : null;
-  }
+  const alias = trimmed.toLowerCase();
+  if (AFFIRMATIVE_REACTION_ALIASES.has(alias)) return true;
 
-  const normalized = trimmed
+  const normalized = alias
     .toLowerCase()
     .replaceAll("\uFE0F", "")
     .replace(/[\u{1F3FB}-\u{1F3FF}]/gu, "");
 
-  return AFFIRMATIVE_EMOJI_REPLY_TOKENS.has(normalized) ? normalized : null;
+  return AFFIRMATIVE_REACTION_EMOJI_TOKENS.has(normalized);
 }
 
 export function buildPendingEmailCardFallbackText(normalizedText: string) {

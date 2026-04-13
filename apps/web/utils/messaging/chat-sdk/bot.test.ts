@@ -88,15 +88,10 @@ describe("normalizeMessagingAssistantText", () => {
 });
 
 describe("normalizeMessagingUserText", () => {
-  it("maps standalone affirmative emoji replies to yes", () => {
-    expect(normalizeMessagingUserText({ text: "👍🏽" })).toBe("yes");
-    expect(normalizeMessagingUserText({ text: "✅ ✅" })).toBe("yes");
-  });
-
-  it("maps Slack-style emoji aliases to yes", () => {
-    expect(normalizeMessagingUserText({ text: ":thumbsup:" })).toBe("yes");
-    expect(normalizeMessagingUserText({ text: ":white_check_mark:" })).toBe(
-      "yes",
+  it("leaves emoji-only messages unchanged", () => {
+    expect(normalizeMessagingUserText({ text: "👍🏽" })).toBe("👍🏽");
+    expect(normalizeMessagingUserText({ text: ":thumbsup:" })).toBe(
+      ":thumbsup:",
     );
   });
 

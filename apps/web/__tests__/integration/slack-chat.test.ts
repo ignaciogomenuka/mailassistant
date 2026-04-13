@@ -245,7 +245,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       }));
     });
 
-    test("normalizes an emoji-only Slack mention before assistant processing", async () => {
+    test("passes an emoji-only Slack mention through unchanged", async () => {
       const { ensureSlackTeamInstallation, getMessagingChatSdkBot } =
         await import("@/utils/messaging/chat-sdk/bot");
 
@@ -302,8 +302,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       const modelMessages = aiProcessAssistantChatMock.mock.calls[0]?.[0]
         ?.messages as Array<unknown>;
-      expect(JSON.stringify(modelMessages.at(-1))).toContain('"text":"yes"');
-      expect(JSON.stringify(modelMessages.at(-1))).not.toContain("thumbsup");
+      expect(JSON.stringify(modelMessages.at(-1))).toContain('"text":"👍"');
+      expect(JSON.stringify(modelMessages.at(-1))).not.toContain(
+        '"text":"yes"',
+      );
     });
 
     test("treats an affirmative Slack reaction as yes", async () => {

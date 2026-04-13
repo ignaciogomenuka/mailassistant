@@ -36,6 +36,10 @@ import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard"
 export const maxDuration = 120;
 
 type AssistantChatResult = Awaited<ReturnType<typeof aiProcessAssistantChat>>;
+type UIStreamWriter = Parameters<
+  NonNullable<Parameters<typeof createUIMessageStream>[0]["execute"]>
+>[0]["writer"];
+type UIMessageChunk = Parameters<UIStreamWriter["write"]>[0];
 
 export const POST = withEmailAccount("chat", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
@@ -392,7 +396,7 @@ async function writeAssistantResponse({
   writer,
 }: {
   stream: AssistantChatResult["stream"];
-  writer: { write: (chunk: unknown) => void };
+  writer: UIStreamWriter;
 }) {
   let responseMessage: UIMessage | null = null;
 
@@ -409,7 +413,7 @@ async function writeAssistantResponse({
 }
 
 async function bufferAssistantResponse(stream: AssistantChatResult["stream"]) {
-  const chunks: unknown[] = [];
+  const chunks: UIMessageChunk[] = [];
   let responseMessage: UIMessage | null = null;
 
   for await (const chunk of stream.toUIMessageStream({

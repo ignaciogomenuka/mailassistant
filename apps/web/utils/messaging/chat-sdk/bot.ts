@@ -1059,7 +1059,7 @@ async function collectAssistantUiMessage({
   originalMessages: UIMessage[];
   assistantMessageId: string;
 }) {
-  const stream = result.toUIMessageStream<UIMessage>({
+  const stream = result.stream.toUIMessageStream<UIMessage>({
     originalMessages,
     generateMessageId: () => assistantMessageId,
   });
@@ -2175,8 +2175,7 @@ export function hasUnsupportedMessagingAttachment({
     const rawEvent = message.raw as SlackEvent;
     const files = rawEvent.files || [];
     return files.some(
-      (f: { mimetype?: string }) =>
-        !f.mimetype || !f.mimetype.startsWith("image/"),
+      (f: { mimetype?: string }) => !f.mimetype?.startsWith("image/"),
     );
   }
 

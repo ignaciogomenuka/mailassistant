@@ -592,7 +592,6 @@ export async function toolCallAgentStream({
   providerOptions: requestProviderOptions,
   onFinish,
   onStepFinish,
-  disableNanoModelGuard,
 }: {
   userAi: UserAIFields;
   modelType?: ModelType;
@@ -609,7 +608,6 @@ export async function toolCallAgentStream({
   providerOptions?: LLMProviderOptions;
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
-  disableNanoModelGuard?: boolean;
 }) {
   const { modelOptions, modelCandidates } = await resolveModelCandidates({
     modelOptions: getModel(userAi, modelType),
@@ -617,7 +615,6 @@ export async function toolCallAgentStream({
     userId,
     emailAccountId,
     label,
-    disableNanoModelGuard,
   });
   const hardenedMessages = applyPromptHardeningToMessages({
     messages,
@@ -866,16 +863,14 @@ async function getCostControlledModelOptions({
   userId,
   emailAccountId,
   label,
-  disableNanoModelGuard,
 }: {
   modelOptions: SelectModel;
   userEmail: string;
   userId?: string;
   emailAccountId?: string;
   label: string;
-  disableNanoModelGuard?: boolean;
 }): Promise<SelectModel> {
-  if (disableNanoModelGuard) {
+  if (label === "assistant-chat") {
     return modelOptions;
   }
 
@@ -979,14 +974,12 @@ async function resolveModelCandidates({
   userId,
   emailAccountId,
   label,
-  disableNanoModelGuard,
 }: {
   modelOptions: SelectModel;
   userEmail: string;
   userId?: string;
   emailAccountId?: string;
   label: string;
-  disableNanoModelGuard?: boolean;
 }): Promise<{
   modelOptions: SelectModel;
   modelCandidates: ResolvedModel[];
@@ -997,7 +990,6 @@ async function resolveModelCandidates({
     userId,
     emailAccountId,
     label,
-    disableNanoModelGuard,
   });
 
   return {

@@ -273,27 +273,6 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.forwardEmail).toBeUndefined();
   });
 
-  it("disables the nano usage guard for assistant chat", async () => {
-    const { aiProcessAssistantChat } = await loadAssistantChatModule({
-      emailSend: true,
-    });
-
-    mockToolCallAgentStream.mockResolvedValue({
-      toUIMessageStreamResponse: vi.fn(),
-    });
-
-    await aiProcessAssistantChat({
-      messages: baseMessages,
-      emailAccountId: "email-account-id",
-      user: getEmailAccount(),
-      logger,
-    });
-
-    const args = mockToolCallAgentStream.mock.calls[0][0];
-
-    expect(args.disableNanoModelGuard).toBe(true);
-  });
-
   it("does not expose webhook rule actions when webhook actions are disabled", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,

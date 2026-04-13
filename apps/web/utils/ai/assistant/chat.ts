@@ -297,7 +297,6 @@ export async function aiProcessAssistantChat({
     },
     maxSteps: 10,
     tools: allTools,
-    disableNanoModelGuard: true,
   });
 
   return result;

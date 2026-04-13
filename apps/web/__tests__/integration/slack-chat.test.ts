@@ -274,7 +274,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         event: {
           type: "app_mention",
           user: userId,
-          text: "<@UAPP123> :thumbsup:",
+          text: "<@UAPP123> 👍",
           ts,
           channel: channelId,
           channel_type: "channel",

@@ -77,11 +77,8 @@ const CONNECT_COMMAND_REGEX =
 const PENDING_EMAIL_CONFIRM_ACTION_ID = "acpe";
 const LEGACY_PENDING_EMAIL_CONFIRM_ACTION_ID =
   "assistant_confirm_pending_email";
-const AFFIRMATIVE_EMOJI_REPLY_TOKENS = new Set([
-  "👍",
-  "✅",
-  "☑",
-  "✔",
+const AFFIRMATIVE_EMOJI_REPLY_TOKENS = new Set(["👍", "✅", "☑", "✔", "+1"]);
+const AFFIRMATIVE_SLACK_EMOJI_ALIASES = new Set([
   "+1",
   "thumbsup",
   "thumbs_up",
@@ -2594,24 +2591,31 @@ export function normalizeMessagingUserText({ text }: { text: string }) {
 
   const tokens = normalized
     .split(/\s+/)
-    .map((token) =>
-      token
-        .trim()
-        .toLowerCase()
-        .replaceAll(":", "")
-        .replaceAll("\uFE0F", "")
-        .replace(/[\u{1F3FB}-\u{1F3FF}]/gu, ""),
-    )
-    .filter(Boolean);
+    .map((token) => normalizeAffirmativeEmojiToken(token));
 
-  if (
-    tokens.length > 0 &&
-    tokens.every((token) => AFFIRMATIVE_EMOJI_REPLY_TOKENS.has(token))
-  ) {
+  if (tokens.length > 0 && tokens.every(Boolean)) {
     return "yes";
   }
 
   return normalized;
+}
+
+function normalizeAffirmativeEmojiToken(token: string) {
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+
+  const colonAliasMatch = trimmed.match(/^:([a-z0-9_+-]+):$/i);
+  if (colonAliasMatch?.[1]) {
+    const alias = colonAliasMatch[1].toLowerCase();
+    return AFFIRMATIVE_SLACK_EMOJI_ALIASES.has(alias) ? alias : null;
+  }
+
+  const normalized = trimmed
+    .toLowerCase()
+    .replaceAll("\uFE0F", "")
+    .replace(/[\u{1F3FB}-\u{1F3FF}]/gu, "");
+
+  return AFFIRMATIVE_EMOJI_REPLY_TOKENS.has(normalized) ? normalized : null;
 }
 
 export function buildPendingEmailCardFallbackText(normalizedText: string) {

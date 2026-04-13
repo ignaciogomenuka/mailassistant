@@ -100,6 +100,11 @@ describe("normalizeMessagingUserText", () => {
     );
   });
 
+  it("does not treat plain words as emoji aliases", () => {
+    expect(normalizeMessagingUserText({ text: "check" })).toBe("check");
+    expect(normalizeMessagingUserText({ text: "thumbsup" })).toBe("thumbsup");
+  });
+
   it("leaves regular text unchanged", () => {
     expect(
       normalizeMessagingUserText({ text: "yes please summarize my inbox" }),

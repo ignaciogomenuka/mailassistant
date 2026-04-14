@@ -1,15 +1,8 @@
 #!/usr/bin/env node
 
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, relative, resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { program } from "commander";
 import * as p from "@clack/prompts";
@@ -19,6 +12,7 @@ import {
   isSensitiveKey,
   parseEnvFile,
   parsePortConflict,
+  syncManagedComposeEnv,
   updateEnvValue,
   redactValue,
   type EnvConfig,
@@ -62,22 +56,6 @@ const STANDALONE_COMPOSE_FILE = resolve(
 function ensureConfigDir(configDir: string) {
   if (!existsSync(configDir)) {
     mkdirSync(configDir, { recursive: true });
-  }
-}
-
-function ensureRepoComposeEnvLink(envFile: string) {
-  if (!REPO_ROOT) return;
-  if (basename(envFile) !== ".env") return;
-
-  const rootEnvFile = resolve(REPO_ROOT, ".env");
-  if (existsSync(rootEnvFile)) return;
-
-  const linkTarget = relative(REPO_ROOT, envFile);
-
-  try {
-    symlinkSync(linkTarget, rootEnvFile);
-  } catch {
-    copyFileSync(envFile, rootEnvFile);
   }
 }
 
@@ -689,7 +667,7 @@ async function runSetupQuick(options: { name?: string }) {
     template,
   });
   writeFileSync(envFile, envContent);
-  ensureRepoComposeEnvLink(envFile);
+  syncManagedComposeEnv({ envFile, repoRoot: REPO_ROOT });
 
   spinner.stop("Configuration ready");
 
@@ -1224,7 +1202,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     template,
   });
   writeFileSync(envFile, envContent);
-  ensureRepoComposeEnvLink(envFile);
+  syncManagedComposeEnv({ envFile, repoRoot: REPO_ROOT });
 
   spinner.stop(".env file created");
 
@@ -1263,7 +1241,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   const composeCmd = REPO_ROOT
     ? envFileName === ".env"
       ? "docker compose"
-      : `docker compose --env-file apps/web/${envFileName}`
+      : `docker compose --env-file ${envFile}`
     : `docker compose --env-file ${envFile} -f ${composeFile}`;
 
   if (runWebInDocker) {
@@ -1703,6 +1681,7 @@ async function runConfigInteractive(name?: string) {
 
   const updated = updateEnvValue(content, keyToUpdate, newValue);
   writeFileSync(envFile, updated);
+  syncManagedComposeEnv({ envFile, repoRoot: REPO_ROOT });
 
   p.log.success(`Updated ${keyToUpdate}`);
   p.note(
@@ -1727,6 +1706,7 @@ async function runConfigSet(key: string, value: string, name?: string) {
   const { envFile, content } = requireEnvFile(name);
   const updated = updateEnvValue(content, key, value);
   writeFileSync(envFile, updated);
+  syncManagedComposeEnv({ envFile, repoRoot: REPO_ROOT });
   p.log.success(`Set ${key}`);
 }
 

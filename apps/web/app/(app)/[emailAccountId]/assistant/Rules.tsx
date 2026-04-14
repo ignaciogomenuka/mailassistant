@@ -10,7 +10,13 @@ import {
   Trash2Icon,
   SparklesIcon,
   CopyIcon,
+  AlertTriangleIcon,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
@@ -120,6 +126,7 @@ export function Rules({
         subject: null,
         body: null,
         promptText: null,
+        hasDisconnectedDriveAttachments: false,
       };
     });
 
@@ -220,7 +227,28 @@ export function Rules({
                         />
                       </TableCell>
                       <TableCell className="font-medium p-2 sm:p-4">
-                        {rule.name}
+                        <div className="flex items-center gap-2">
+                          <span>{rule.name}</span>
+                          {rule.hasDisconnectedDriveAttachments && (
+                            <Tooltip>
+                              <TooltipTrigger
+                                asChild
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <AlertTriangleIcon
+                                  aria-label="Drive disconnected — attachments will not be included"
+                                  data-testid="rule-drive-disconnected-warning"
+                                  className="size-4 text-amber-600 shrink-0"
+                                />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Drive is disconnected. Replies from this rule
+                                will be sent without the approved attachments
+                                until Drive is reconnected.
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell p-2 sm:p-4">
                         <TruncatedTooltipText

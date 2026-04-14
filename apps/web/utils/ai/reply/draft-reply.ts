@@ -36,6 +36,18 @@ Don't suggest meeting times or mention availability unless specific calendar inf
 
 Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
+
+Confidence self-assessment:
+You must grade your own confidence in the returned "confidence" field. Be honest and conservative. It is better to return ALL_EMAILS (low) than to sound confident on a reply you are guessing.
+- HIGH_CONFIDENCE: Use only when the sender's intent is unambiguous AND every factual claim or commitment in your reply is directly supported by the thread, the knowledge base, the user's writing style/about, calendar availability, or other provided context. Appropriate for logistics, confirmations, acknowledgements, and questions with clearly grounded answers.
+- STANDARD: The general shape of the reply is clearly correct and grounded, but minor details (phrasing, a small factual point, tone) carry some uncertainty.
+- ALL_EMAILS (lowest): Use when any of the following is true, even if the reply reads fluently:
+  * The email asks for a subjective opinion, personal preference, feelings, or a judgement call that only the user can make.
+  * The reply would make a commitment, decision, promise, or schedule change on the user's behalf that is not already supported by provided context.
+  * The reply would share private information (pricing, availability, personal details, internal details) that is not present in the provided context.
+  * Any meaningful claim in the reply is a guess or an inference not grounded in the provided context.
+  * The sender's intent is ambiguous, or important context appears to be missing from the thread.
+Never rate HIGH_CONFIDENCE on a subjective or personal email just because you produced a fluent-sounding draft.
 `;
 
 const defaultWritingStyle = `Keep it concise, direct, and friendly.
@@ -199,7 +211,12 @@ const draftSchema = z.object({
   confidence: z
     .nativeEnum(DraftReplyConfidence)
     .describe(
-      "Required value: ALL_EMAILS, STANDARD, or HIGH_CONFIDENCE. Use ALL_EMAILS when uncertain or context is missing, STANDARD for solid drafts with minor uncertainty, and HIGH_CONFIDENCE only when intent and response are clear.",
+      [
+        "Honest self-assessment of confidence in this draft. Required value: ALL_EMAILS, STANDARD, or HIGH_CONFIDENCE.",
+        "HIGH_CONFIDENCE: the sender's intent is unambiguous and every factual claim or commitment in the reply is directly supported by the provided context (thread, knowledge base, user about, calendar, tools).",
+        "STANDARD: the overall reply is clearly correct and grounded, but minor details carry some uncertainty.",
+        "ALL_EMAILS: use whenever the email is subjective or personal (opinions, preferences, judgement calls only the user can make), whenever the reply would make a commitment, decision, or schedule on the user's behalf without grounding, whenever it would share private information not present in the context, whenever a meaningful claim in the reply is a guess or ungrounded inference, or whenever the sender's intent is ambiguous. Do not rate HIGH_CONFIDENCE on subjective or personal content just because the draft reads fluently.",
+      ].join(" "),
     ),
 });
 

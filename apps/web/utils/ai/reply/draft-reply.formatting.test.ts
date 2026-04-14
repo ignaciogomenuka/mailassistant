@@ -362,6 +362,62 @@ Representative edits:
     expect(result.confidence).toBe(DraftReplyConfidence.ALL_EMAILS);
   });
 
+  it("instructs the model to format based on reply content complexity, not sender style (INB-149)", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Thanks for your message.",
+        confidence: DraftReplyConfidence.STANDARD,
+      },
+    });
+
+    await aiDraftReplyWithConfidence(getDraftParams());
+
+    const [callArgs] = mockGenerateObject.mock.calls.at(-1)!;
+    const combined = `${callArgs.system}\n${callArgs.prompt}`;
+
+    expect(combined.toLowerCase()).toMatch(
+      /(reply|response|answer)[\s\S]{0,80}(content|complexity|substance|needs|requires)/,
+    );
+    expect(combined.toLowerCase()).toMatch(
+      /(don['’]?t|do not|not) (just )?mirror|not (?:simply )?(?:copy|match|mirror) (?:the )?sender/,
+    );
+  });
+
+  it("does not cap reply length at two sentences unconditionally (INB-149)", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Thanks for your message.",
+        confidence: DraftReplyConfidence.STANDARD,
+      },
+    });
+
+    await aiDraftReplyWithConfidence(getDraftParams());
+
+    const [callArgs] = mockGenerateObject.mock.calls.at(-1)!;
+    const combined = `${callArgs.system}\n${callArgs.prompt}`;
+
+    expect(combined).not.toMatch(/2 sentences at most/i);
+    expect(combined).not.toMatch(/two sentences at most/i);
+  });
+
+  it("allows multi-paragraph or bulleted replies for multi-point questions (INB-149)", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Thanks for your message.",
+        confidence: DraftReplyConfidence.STANDARD,
+      },
+    });
+
+    await aiDraftReplyWithConfidence(getDraftParams());
+
+    const [callArgs] = mockGenerateObject.mock.calls.at(-1)!;
+    const combined = `${callArgs.system}\n${callArgs.prompt}`.toLowerCase();
+
+    expect(combined).toMatch(
+      /(paragraph|bullet|list|multiple|multi-?point|several)/,
+    );
+  });
+
   it("returns the actual provider and model used for the successful draft generation", async () => {
     mockCreateGenerateObject.mockImplementationOnce(({ onModelUsed }) => {
       return vi.fn().mockImplementationOnce(async () => {

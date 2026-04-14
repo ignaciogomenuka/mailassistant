@@ -36,10 +36,12 @@ Don't suggest meeting times or mention availability unless specific calendar inf
 
 Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
+
+Format the reply based on the complexity of the response content, not the sender's style. Do not mirror the sender's format: a one-line question that genuinely requires multiple points to answer should get a multi-paragraph or bulleted reply, and a long message that only needs a short acknowledgement should get a short reply. Use paragraphs or bullet lists when the answer covers multiple distinct points, and keep it to one or two sentences when a single thought is enough.
 `;
 
 const defaultWritingStyle = `Keep it concise, direct, and friendly.
-Keep the reply short. Aim for 2 sentences at most unless a brief answer to multiple questions needs more.
+Match the length and structure to what the reply actually needs to say: use a short reply (one or two sentences) for simple answers, and use paragraphs or bullet lists when the response covers multiple points, questions, or steps. Do not compress a multi-point answer into a single line just because the sender wrote a short message.
 Don't be pushy.
 Write in a plainspoken, professional tone.
 Prefer short declarative sentences over polished or overly elaborate phrasing.`;

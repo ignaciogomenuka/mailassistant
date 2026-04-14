@@ -1,25 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ArrowUpIcon,
-  HistoryIcon,
-  Loader2,
-  PaperclipIcon,
-  PlusIcon,
-  SquareIcon,
-} from "lucide-react";
+import { ArrowUpIcon, Loader2, PaperclipIcon, SquareIcon } from "lucide-react";
 import { Messages } from "./messages";
 import { PreviewAttachment } from "./preview-attachment";
+import { ChatTopBar } from "./chat-top-bar";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useChats } from "@/hooks/useChats";
-import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 import { useChat } from "@/providers/ChatProvider";
 import type { Attachment } from "@/providers/ChatProvider";
@@ -43,7 +29,13 @@ const ACCEPTED_IMAGE_TYPES = [
   "image/gif",
 ];
 
-export function Chat({ open }: { open: boolean }) {
+export function Chat({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose?: () => void;
+}) {
   const {
     chat,
     chatId,
@@ -270,7 +262,7 @@ export function Chat({ open }: { open: boolean }) {
         } as React.CSSProperties
       }
     >
-      <ChatTopBar hasMessages={hasMessages} />
+      <ChatTopBar hasMessages={hasMessages} onClose={onClose} />
       {hasMessages ? (
         <ChatMessagesView
           status={status}
@@ -392,95 +384,6 @@ function NewChatView({
         </div>
       </div>
     </div>
-  );
-}
-
-function ChatTopBar({ hasMessages }: { hasMessages: boolean }) {
-  return (
-    <div className="relative mx-auto w-full max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] px-[var(--chat-px)] pt-2">
-      <div className="flex items-center justify-end gap-1">
-        {hasMessages ? (
-          <>
-            <NewChatButton />
-            <ChatHistoryDropdown />
-          </>
-        ) : (
-          <ChatHistoryDropdown />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function NewChatButton() {
-  const { setNewChat } = useChat();
-
-  return (
-    <Tooltip content="Start a new conversation">
-      <Button variant="ghost" size="icon" onClick={setNewChat}>
-        <PlusIcon className="size-5" />
-        <span className="sr-only">New Chat</span>
-      </Button>
-    </Tooltip>
-  );
-}
-
-function ChatHistoryDropdown() {
-  const { setChatId } = useChat();
-  const [shouldLoadChats, setShouldLoadChats] = useState(false);
-  const { data, error, isLoading, mutate } = useChats(shouldLoadChats);
-
-  return (
-    <DropdownMenu>
-      <Tooltip content="View previous conversations">
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            onMouseEnter={() => setShouldLoadChats(true)}
-            onClick={() => mutate()}
-          >
-            <HistoryIcon className="size-5" />
-            <span className="sr-only">Chat History</span>
-          </Button>
-        </DropdownMenuTrigger>
-      </Tooltip>
-      <DropdownMenuContent align="end">
-        <LoadingContent
-          loading={isLoading}
-          error={error}
-          loadingComponent={
-            <DropdownMenuItem
-              disabled
-              className="flex items-center justify-center"
-            >
-              <Loader2 className="mr-2 size-4 animate-spin" />
-              Loading chats...
-            </DropdownMenuItem>
-          }
-          errorComponent={
-            <DropdownMenuItem disabled>Error loading chats</DropdownMenuItem>
-          }
-        >
-          {data && data.chats.length > 0 ? (
-            data.chats.map((chatItem) => (
-              <DropdownMenuItem
-                key={chatItem.id}
-                onSelect={() => {
-                  setChatId(chatItem.id);
-                }}
-              >
-                {`Chat from ${new Date(chatItem.createdAt).toLocaleString()}`}
-              </DropdownMenuItem>
-            ))
-          ) : (
-            <DropdownMenuItem disabled>
-              No previous chats found
-            </DropdownMenuItem>
-          )}
-        </LoadingContent>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

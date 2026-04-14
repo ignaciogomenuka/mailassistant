@@ -15,6 +15,15 @@ const mockUsePostHog = vi.fn();
 
 (globalThis as { React?: typeof React }).React = React;
 
+class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+(globalThis as { ResizeObserver?: typeof MockResizeObserver }).ResizeObserver =
+  MockResizeObserver;
+
 vi.mock("server-only", () => ({}));
 
 vi.mock("next/navigation", () => ({
@@ -169,5 +178,122 @@ describe("RuleForm", () => {
       screen.getByDisplayValue("Secure link to log in to Claude.ai"),
     ).toBeTruthy();
     expect(screen.getAllByDisplayValue(/@?example\.com/)).toHaveLength(4);
+  });
+
+  it("keeps draft reply destinations grouped when persisted actions arrive out of order", () => {
+    mockUseMessagingChannels.mockReturnValue({
+      data: {
+        channels: [
+          {
+            id: "cmessagingchannel1234567890123",
+            provider: "SLACK",
+            teamName: "Workspace",
+            teamId: "team-1",
+            isConnected: true,
+            canSendAsDm: true,
+            actions: [],
+            destinations: {
+              ruleNotifications: {
+                enabled: true,
+                targetId: "U123",
+                targetLabel: "Direct message",
+                isDm: true,
+              },
+              meetingBriefs: {
+                enabled: false,
+                targetId: null,
+                targetLabel: null,
+                isDm: false,
+              },
+              documentFilings: {
+                enabled: false,
+                targetId: null,
+                targetLabel: null,
+                isDm: false,
+              },
+            },
+          },
+          {
+            id: "cmessagingchannel1234567890456",
+            provider: "TELEGRAM",
+            teamName: "Telegram DM",
+            teamId: "chat-1",
+            isConnected: true,
+            canSendAsDm: false,
+            actions: [],
+            destinations: {
+              ruleNotifications: {
+                enabled: true,
+                targetId: "chat-1",
+                targetLabel: "Direct message",
+                isDm: true,
+              },
+              meetingBriefs: {
+                enabled: false,
+                targetId: null,
+                targetLabel: null,
+                isDm: false,
+              },
+              documentFilings: {
+                enabled: false,
+                targetId: null,
+                targetLabel: null,
+                isDm: false,
+              },
+            },
+          },
+        ],
+        availableProviders: ["SLACK", "TELEGRAM"],
+      },
+    });
+
+    render(
+      <RuleForm
+        alwaysEditMode
+        rule={{
+          id: "cmjzoasfv000004ld2qar07t3",
+          name: "Draft reply rule",
+          instructions: null,
+          groupId: null,
+          runOnThreads: false,
+          digest: false,
+          conditionalOperator: LogicalOperator.AND,
+          conditions: [
+            {
+              type: ConditionType.STATIC,
+              from: "sender@example.com",
+              to: null,
+              subject: null,
+              body: null,
+              instructions: null,
+            },
+          ],
+          actions: [
+            {
+              id: "action-telegram",
+              type: ActionType.DRAFT_MESSAGING_CHANNEL,
+              messagingChannelId: "cmessagingchannel1234567890456",
+              content: { value: "" },
+            },
+            {
+              id: "action-email",
+              type: ActionType.DRAFT_EMAIL,
+              content: { value: "" },
+            },
+            {
+              id: "action-slack",
+              type: ActionType.DRAFT_MESSAGING_CHANNEL,
+              messagingChannelId: "cmessagingchannel1234567890123",
+              content: { value: "" },
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getAllByText("Draft to")).toHaveLength(1);
+    expect(screen.getByText("Email")).toBeTruthy();
+    expect(screen.getByText("Slack DM")).toBeTruthy();
+    expect(screen.getByText("Telegram DM")).toBeTruthy();
   });
 });

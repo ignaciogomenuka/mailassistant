@@ -58,6 +58,7 @@ import {
 import { handleRuleAttachmentSourceSave } from "@/utils/attachments/rule";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
+import { sortActionsByPriority } from "@/utils/action-sort";
 import {
   denormalizeDraftReplyActions,
   normalizeDraftReplyActions,
@@ -117,18 +118,20 @@ export function RuleForm({
           ),
           actions: [
             ...normalizeDraftReplyActions(
-              rule.actions
-                .filter((action) => action.type !== ActionType.DIGEST)
-                .map((action) => ({
-                  ...action,
-                  delayInMinutes: action.delayInMinutes,
-                  content: {
-                    ...action.content,
-                    setManually: !!action.content?.value,
-                  },
-                  folderName: action.folderName,
-                  folderId: action.folderId,
-                })),
+              sortActionsByPriority(
+                rule.actions
+                  .filter((action) => action.type !== ActionType.DIGEST)
+                  .map((action) => ({
+                    ...action,
+                    delayInMinutes: action.delayInMinutes,
+                    content: {
+                      ...action.content,
+                      setManually: !!action.content?.value,
+                    },
+                    folderName: action.folderName,
+                    folderId: action.folderId,
+                  })),
+              ),
             ),
           ],
         }

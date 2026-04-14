@@ -681,26 +681,35 @@ function restorePersistedActionSequence({
 
   if (originalActionIndexes.size === 0) return actions;
 
-  const existingActions: CreateRuleBody["actions"] = [];
+  const existingActionsWithIndexes: Array<{
+    action: CreateRuleBody["actions"][number];
+    originalIndex: number;
+  }> = [];
   const newActions: CreateRuleBody["actions"] = [];
 
   for (const action of actions) {
-    if (action.id && originalActionIndexes.has(action.id)) {
-      existingActions.push(action);
-    } else {
-      newActions.push(action);
+    const originalIndex = action.id
+      ? originalActionIndexes.get(action.id)
+      : undefined;
+
+    if (originalIndex !== undefined) {
+      existingActionsWithIndexes.push({ action, originalIndex });
+      continue;
     }
+
+    newActions.push(action);
   }
 
-  if (existingActions.length === 0) return actions;
+  if (existingActionsWithIndexes.length === 0) return actions;
 
-  existingActions.sort(
-    (left, right) =>
-      originalActionIndexes.get(left.id!)! -
-      originalActionIndexes.get(right.id!)!,
+  existingActionsWithIndexes.sort(
+    (left, right) => left.originalIndex - right.originalIndex,
   );
 
-  return [...existingActions, ...newActions];
+  return [
+    ...existingActionsWithIndexes.map(({ action }) => action),
+    ...newActions,
+  ];
 }
 
 type ActionTypeOption = {

@@ -26,6 +26,7 @@ Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
 ${DRAFT_OUTPUT_INSTRUCTION}
 IMPORTANT: Format paragraphs using Unix newlines: use "\n\n" between paragraphs and "\n" for single line breaks.
+Choose formatting based on the complexity of your reply, not the sender's format. If the reply addresses multiple topics, questions, or points, split them into separate paragraphs (or a bulleted list for parallel items) even when the sender wrote a one-liner. If the reply makes a single point, keep it to one short paragraph even when the sender wrote long paragraphs.
 Write the reply in the same language as the latest message in the thread.
 
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
@@ -39,7 +40,7 @@ Your reply should aim to continue the conversation or provide new information ba
 `;
 
 const defaultWritingStyle = `Keep it concise, direct, and friendly.
-Keep the reply short. Aim for 2 sentences at most unless a brief answer to multiple questions needs more.
+Keep the reply short: aim for 2 sentences when a single point answers the email. When addressing multiple topics or questions, use enough paragraphs (or bullets) to cover each one clearly, even if that makes the reply longer.
 Don't be pushy.
 Write in a plainspoken, professional tone.
 Prefer short declarative sentences over polished or overly elaborate phrasing.`;

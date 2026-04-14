@@ -234,7 +234,7 @@ export const searchInboxTool = ({
 }) =>
   tool({
     description:
-      "Search inbox messages and return concise message metadata for triage and summarization. Results are paginated: when the response includes hasMore=true (and a nextPageToken), there are more matching messages that were not returned. For bulk or 'all matching' requests (e.g. 'archive all unread older than 3 years'), keep calling searchInbox with the returned nextPageToken until hasMore=false before reporting completion. Do not claim an action covers all matches based on a single page.",
+      "Search inbox messages and return concise message metadata. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion.",
     inputSchema: searchInboxInputSchema(provider),
     execute: async ({ query, limit, pageToken }) => {
       trackToolCall({ tool: "search_inbox", email, logger });
@@ -535,7 +535,7 @@ export const manageInboxTool = ({
 
   return tool({
     description:
-      "Run inbox actions on threads or senders. Thread-level actions (archive_threads, trash_threads, label_threads, mark_read_threads) accept at most 100 threadIds per call, so bulk requests that match more than 100 threads require repeated calls: paginate searchInbox until hasMore=false and invoke manageInbox once per batch of up to 100 IDs before reporting completion. For server-wide cleanup from specific senders, prefer bulk_archive_senders or unsubscribe_senders with fromEmails instead of enumerating threadIds.",
+      "Run inbox actions on threads or senders. Thread actions accept up to 100 threadIds per call, so bulk requests require repeated manageInbox calls over paginated searchInbox results. For sender-wide cleanup, prefer bulk_archive_senders or unsubscribe_senders with fromEmails.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });

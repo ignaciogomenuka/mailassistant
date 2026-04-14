@@ -49,16 +49,12 @@ export function ActionAttachmentsField({
   value,
   onChange,
   emailAccountId,
-  contentSetManually,
-  allowAiSelectedSources = true,
   attachmentSources,
   onAttachmentSourcesChange,
 }: {
   value: AttachmentSourceInput[];
   onChange: (value: AttachmentSourceInput[]) => void;
   emailAccountId: string;
-  contentSetManually: boolean;
-  allowAiSelectedSources?: boolean;
   attachmentSources: AttachmentSourceInput[];
   onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
@@ -70,9 +66,8 @@ export function ActionAttachmentsField({
 
   const isConnected = (connectionsData?.connections.length ?? 0) > 0;
   const hasAttachments = value.length > 0;
-  const aiSourceCount = allowAiSelectedSources ? attachmentSources.length : 0;
-  const hasAiSources = aiSourceCount > 0;
-  const totalCount = value.length + aiSourceCount;
+  const hasAiSources = attachmentSources.length > 0;
+  const totalCount = value.length + attachmentSources.length;
 
   const selectedKeys = useMemo(
     () => new Set(value.map((source) => getSourceKey(source))),
@@ -101,10 +96,7 @@ export function ActionAttachmentsField({
     }
   };
 
-  const toggleAiSource = (
-    source: AttachmentSourceInput,
-    checked: boolean,
-  ) => {
+  const toggleAiSource = (source: AttachmentSourceInput, checked: boolean) => {
     const key = getSourceKey(source);
     if (checked) {
       onAttachmentSourcesChange(
@@ -141,14 +133,19 @@ export function ActionAttachmentsField({
             <p className="text-sm text-muted-foreground">
               Connect your cloud storage to attach files to your emails.
             </p>
-            <Button asChild variant="link" size="sm" className="mt-1 h-auto p-0 text-sm">
+            <Button
+              asChild
+              variant="link"
+              size="sm"
+              className="mt-1 h-auto p-0 text-sm"
+            >
               <Link href={`/${emailAccountId}/drive`}>Connect Drive</Link>
             </Button>
           </div>
         </div>
       )}
 
-      {isConnected && contentSetManually && (
+      {isConnected && (
         <div className="mt-2">
           <button
             type="button"
@@ -171,7 +168,10 @@ export function ActionAttachmentsField({
           </button>
 
           {isExpanded && hasAttachments && (
-            <SourceList items={value} onRemove={(source) => toggleSource(source, false)} />
+            <SourceList
+              items={value}
+              onRemove={(source) => toggleSource(source, false)}
+            />
           )}
 
           <Dialog open={isPickerOpen} onOpenChange={setIsPickerOpen}>
@@ -200,12 +200,14 @@ export function ActionAttachmentsField({
         </div>
       )}
 
-      {isConnected && allowAiSelectedSources && (
+      {isConnected && (
         <div className="mt-2">
           <button
             type="button"
             className="flex items-center gap-1.5 text-xs text-muted-foreground"
-            onClick={() => hasAiSources && setIsSourcesExpanded(!isSourcesExpanded)}
+            onClick={() =>
+              hasAiSources && setIsSourcesExpanded(!isSourcesExpanded)
+            }
           >
             <span className="font-medium">AI-selected sources</span>
             {hasAiSources && (
@@ -229,7 +231,10 @@ export function ActionAttachmentsField({
             />
           )}
 
-          <Dialog open={isSourcePickerOpen} onOpenChange={setIsSourcePickerOpen}>
+          <Dialog
+            open={isSourcePickerOpen}
+            onOpenChange={setIsSourcePickerOpen}
+          >
             <DialogTrigger asChild>
               <Button
                 type="button"

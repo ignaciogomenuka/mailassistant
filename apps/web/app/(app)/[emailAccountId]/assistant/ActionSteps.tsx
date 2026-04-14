@@ -631,10 +631,6 @@ function ActionCard({
     isDraftReplyActionType(rawActionType) ||
     actionType === ActionType.REPLY ||
     actionType === ActionType.SEND_EMAIL;
-  const supportsAiSelectedSources = isDraftReplyActionType(rawActionType);
-  const canConfigureStaticAttachments = isDraftReplyActionType(rawActionType)
-    ? contentSetManually
-    : supportsAttachments;
 
   const staticAttachments = useWatch({
     control,
@@ -643,13 +639,11 @@ function ActionCard({
 
   const attachmentsField = supportsAttachments ? (
     <ActionAttachmentsField
-      value={canConfigureStaticAttachments ? (staticAttachments ?? []) : []}
+      value={staticAttachments ?? []}
       onChange={(newValue) =>
         setValue(`actions.${index}.staticAttachments`, newValue)
       }
       emailAccountId={emailAccountId}
-      contentSetManually={canConfigureStaticAttachments}
-      allowAiSelectedSources={supportsAiSelectedSources}
       attachmentSources={attachmentSources}
       onAttachmentSourcesChange={onAttachmentSourcesChange}
     />

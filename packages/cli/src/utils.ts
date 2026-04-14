@@ -303,17 +303,28 @@ export function syncManagedComposeEnv({
   }
 
   const rootEnvStat = lstatSync(rootEnvFile);
+  const isManaged = existsSync(markerFile);
   if (rootEnvStat.isSymbolicLink()) {
     const currentTarget = readlinkSync(rootEnvFile);
     if (currentTarget !== linkTarget) {
+      if (!isManaged) return;
+
       rmSync(rootEnvFile, { force: true });
-      symlinkSync(linkTarget, rootEnvFile);
+      createManagedComposeEnv({
+        linkTarget,
+        markerFile,
+        rootEnvFile,
+        sourceContent,
+      });
+      return;
     }
-    writeFileSync(markerFile, linkTarget);
+
+    if (isManaged) {
+      writeFileSync(markerFile, linkTarget);
+    }
     return;
   }
 
-  const isManaged = existsSync(markerFile);
   if (!isManaged) {
     const currentContent = readFileSync(rootEnvFile, "utf-8");
     if (currentContent !== sourceContent) return;

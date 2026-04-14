@@ -1,4 +1,10 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect } from "vitest";
@@ -682,6 +688,39 @@ describe("syncManagedComposeEnv", () => {
     syncManagedComposeEnv({ envFile: appEnv, repoRoot });
 
     expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=manual\n");
+  });
+
+  it("does not overwrite an unmanaged root env symlink", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    const appDir = join(repoRoot, "apps", "web");
+    const appEnv = join(appDir, ".env");
+    const manualEnv = join(repoRoot, ".env.manual");
+    const rootEnv = join(repoRoot, ".env");
+
+    mkdirSync(appDir, { recursive: true });
+    writeFileSync(appEnv, "FOO=managed\n");
+    writeFileSync(manualEnv, "FOO=manual\n");
+    symlinkSync(".env.manual", rootEnv);
+
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+
+    expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=manual\n");
+  });
+
+  it("relinks a managed root env symlink when it points to the wrong target", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    const appDir = join(repoRoot, "apps", "web");
+    const appEnv = join(appDir, ".env");
+    const rootEnv = join(repoRoot, ".env");
+
+    mkdirSync(appDir, { recursive: true });
+    writeFileSync(appEnv, "FOO=managed\n");
+    writeFileSync(join(repoRoot, ".env.inbox-zero-managed"), "apps/web/.env");
+    symlinkSync(".env.previous", rootEnv);
+
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+
+    expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=managed\n");
   });
 
   it("skips named env files because they use explicit compose env-file flags", () => {

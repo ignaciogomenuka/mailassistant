@@ -694,7 +694,11 @@ async function runSetupQuick(options: { name?: string }) {
   }
 
   // Check if already running
-  const composeArgs = REPO_ROOT ? ["compose"] : ["compose", "-f", composeFile];
+  const composeArgs = REPO_ROOT
+    ? envFileName === ".env"
+      ? ["compose"]
+      : ["compose", "--env-file", envFile]
+    : ["compose", "--env-file", envFile, "-f", composeFile];
 
   if (checkContainersRunning(composeArgs)) {
     const restart = await p.confirm({
@@ -1241,8 +1245,8 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   const composeCmd = REPO_ROOT
     ? envFileName === ".env"
       ? "docker compose"
-      : `docker compose --env-file ${envFile}`
-    : `docker compose --env-file ${envFile} -f ${composeFile}`;
+      : `docker compose --env-file "${envFile}"`
+    : `docker compose --env-file "${envFile}" -f "${composeFile}"`;
 
   if (runWebInDocker) {
     // Web app runs in Docker with database & Redis

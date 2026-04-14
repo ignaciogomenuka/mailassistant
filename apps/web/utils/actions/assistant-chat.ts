@@ -88,6 +88,7 @@ export const confirmAssistantEmailAction = actionClient
         toolCallId,
         actionType,
         contentOverride,
+        waitForPersistence: true,
         emailAccountId,
         provider,
         logger,
@@ -939,6 +940,9 @@ async function reservePendingAssistantEmailAction({
 }) {
   const matchEmailParts = (parts: unknown) =>
     !!findPendingAssistantEmailPart({ parts, toolCallId, actionType });
+  const waitForPersistenceMs = waitForPersistence
+    ? PENDING_ACTION_PERSIST_WAIT_MS
+    : undefined;
 
   const chatMessage = await findChatMessageForPendingAction({
     chatId,
@@ -947,9 +951,7 @@ async function reservePendingAssistantEmailAction({
     logger,
     matchParts: matchEmailParts,
     logPrefix: "Assistant email confirmation",
-    waitForPersistenceMs: waitForPersistence
-      ? PENDING_ACTION_PERSIST_WAIT_MS
-      : undefined,
+    waitForPersistenceMs,
   });
 
   if (!chatMessage) {
@@ -1032,6 +1034,7 @@ async function reservePendingAssistantEmailAction({
     logger,
     matchParts: matchEmailParts,
     logPrefix: "Assistant email confirmation",
+    waitForPersistenceMs,
   });
 
   if (!latestMessage) {

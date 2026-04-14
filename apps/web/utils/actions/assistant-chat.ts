@@ -722,7 +722,15 @@ async function findChatMessageForPendingAction({
     },
   });
 
-  if (chatMessage) return chatMessage;
+  if (chatMessage && matchParts(chatMessage.parts)) return chatMessage;
+
+  if (chatMessage) {
+    logger.warn(`${logPrefix} exact chat message missing pending action`, {
+      chatId,
+      chatMessageId,
+      resolvedChatMessageId: chatMessage.id,
+    });
+  }
 
   const fallbackCandidates = await prisma.chatMessage.findMany({
     where: {
@@ -730,7 +738,7 @@ async function findChatMessageForPendingAction({
       chat: { id: chatId, emailAccountId },
     },
     orderBy: { updatedAt: "desc" },
-    take: 10,
+    take: 50,
     select: {
       id: true,
       chatId: true,

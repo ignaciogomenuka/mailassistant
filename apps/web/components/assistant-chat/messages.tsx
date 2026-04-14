@@ -15,12 +15,12 @@ import {
 } from "@/components/ai-elements/conversation";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { Loader } from "@/components/ai-elements/loader";
-import { useChat } from "@/providers/ChatProvider";
 
 interface MessagesProps {
   footer?: ReactNode;
   isArtifactVisible: boolean;
   messages: Array<ChatMessage>;
+  persistedMessageIds: Set<string>;
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   setInput: (input: string) => void;
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
@@ -30,10 +30,10 @@ interface MessagesProps {
 export function Messages({
   status,
   messages,
+  persistedMessageIds,
   setInput,
   footer,
 }: MessagesProps) {
-  const { persistedMessageIds } = useChat();
   const disableConfirm = status === "streaming" || status === "submitted";
   const emailLookup = useMemo(() => buildEmailLookup(messages), [messages]);
   const firstAssistantIndex = useMemo(

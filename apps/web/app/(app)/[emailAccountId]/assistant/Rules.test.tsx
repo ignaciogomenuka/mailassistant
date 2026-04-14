@@ -25,10 +25,15 @@ vi.mock("next/link", () => ({
   default: ({
     children,
     href,
+    ...rest
   }: {
     children: React.ReactNode;
     href: string;
-  }) => <a href={href}>{children}</a>,
+  } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -183,5 +188,49 @@ describe("Rules", () => {
     );
 
     expect(screen.getByText("Delete")).toBeTruthy();
+  });
+
+  it("shows a warning badge when Drive attachments are disconnected", () => {
+    mockUseRules.mockReturnValue({
+      data: [
+        {
+          id: "rule-with-disconnected-drive",
+          name: "Send brochure",
+          instructions: "Reply with brochure",
+          enabled: true,
+          runOnThreads: false,
+          automate: true,
+          actions: [],
+          group: null,
+          emailAccountId: "ea_1",
+          createdAt: new Date("2026-04-01T00:00:00.000Z"),
+          updatedAt: new Date("2026-04-01T00:00:00.000Z"),
+          categoryFilterType: null,
+          conditionalOperator: "OR",
+          groupId: null,
+          systemType: null,
+          to: null,
+          from: null,
+          subject: null,
+          body: null,
+          promptText: null,
+          attachmentSources: [],
+          hasDisconnectedDriveAttachments: true,
+        },
+      ],
+      isLoading: false,
+      error: null,
+      mutate: vi.fn(),
+    });
+
+    render(<Rules />);
+
+    const row = screen.getByText("Send brochure").closest("tr");
+    expect(row).toBeTruthy();
+    expect(
+      within(row as HTMLElement).getByLabelText(
+        "Drive disconnected: attachments will be skipped",
+      ),
+    ).toBeTruthy();
   });
 });

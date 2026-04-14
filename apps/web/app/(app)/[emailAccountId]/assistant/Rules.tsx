@@ -10,6 +10,7 @@ import {
   Trash2Icon,
   SparklesIcon,
   CopyIcon,
+  AlertTriangleIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -30,6 +31,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
 import { Badge } from "@/components/Badge";
@@ -120,6 +127,8 @@ export function Rules({
         subject: null,
         body: null,
         promptText: null,
+        attachmentSources: [],
+        hasDisconnectedDriveAttachments: false,
       };
     });
 
@@ -220,7 +229,14 @@ export function Rules({
                         />
                       </TableCell>
                       <TableCell className="font-medium p-2 sm:p-4">
-                        {rule.name}
+                        <div className="flex items-center gap-2">
+                          {rule.name}
+                          {rule.hasDisconnectedDriveAttachments && (
+                            <DriveDisconnectedWarning
+                              emailAccountId={emailAccountId}
+                            />
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell p-2 sm:p-4">
                         <TruncatedTooltipText
@@ -429,6 +445,33 @@ function getVisibleActions<T extends { type: ActionType }>(actions: T[]): T[] {
 
   return sortedActions.filter(
     (action) => !(action.type === "DRAFT_MESSAGING_CHANNEL" && hasEmailDraft),
+  );
+}
+
+function DriveDisconnectedWarning({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link
+            href={prefixPath(emailAccountId, "/drive")}
+            onClick={(e) => e.stopPropagation()}
+            className="text-amber-600 dark:text-amber-500"
+            aria-label="Drive disconnected: attachments will be skipped"
+          >
+            <AlertTriangleIcon className="size-4" />
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent>
+          Drive is disconnected. Attachments configured for this rule will be
+          skipped until you reconnect.
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 

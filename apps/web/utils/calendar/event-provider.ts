@@ -24,6 +24,13 @@ export async function createCalendarEventProviders(
       accessToken: true,
       refreshToken: true,
       expiresAt: true,
+      calendars: {
+        where: { isEnabled: true },
+        select: {
+          calendarId: true,
+          primary: true,
+        },
+      },
     },
   });
 
@@ -37,6 +44,15 @@ export async function createCalendarEventProviders(
   for (const connection of connections) {
     if (!connection.refreshToken) continue;
 
+    const calendarIds = connection.calendars.map((cal) => cal.calendarId);
+    if (calendarIds.length === 0) {
+      logger.info("No enabled calendars for connection", {
+        connectionId: connection.id,
+        provider: connection.provider,
+      });
+      continue;
+    }
+
     try {
       if (isGoogleProvider(connection.provider)) {
         providers.push(
@@ -46,6 +62,7 @@ export async function createCalendarEventProviders(
               refreshToken: connection.refreshToken,
               expiresAt: connection.expiresAt?.getTime() ?? null,
               emailAccountId,
+              calendarIds,
             },
             logger,
           ),
@@ -58,6 +75,7 @@ export async function createCalendarEventProviders(
               refreshToken: connection.refreshToken,
               expiresAt: connection.expiresAt?.getTime() ?? null,
               emailAccountId,
+              calendarIds,
             },
             logger,
           ),

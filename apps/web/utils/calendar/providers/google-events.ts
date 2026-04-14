@@ -8,6 +8,7 @@ import type { Logger } from "@/utils/logger";
 
 export interface GoogleCalendarConnectionParams {
   accessToken: string | null;
+  calendarIds: string[];
   emailAccountId: string;
   expiresAt: number | null;
   refreshToken: string | null;
@@ -45,17 +46,30 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
   }): Promise<CalendarEvent[]> {
     const client = await this.getClient();
 
-    const response = await client.events.list({
-      calendarId: "primary",
-      timeMin: timeMin.toISOString(),
-      timeMax: timeMax.toISOString(),
-      maxResults,
-      singleEvents: true,
-      orderBy: "startTime",
-      q: attendeeEmail,
-    });
+    const results = await Promise.allSettled(
+      this.connection.calendarIds.map((calendarId) =>
+        client.events.list({
+          calendarId,
+          timeMin: timeMin.toISOString(),
+          timeMax: timeMax.toISOString(),
+          maxResults,
+          singleEvents: true,
+          orderBy: "startTime",
+          q: attendeeEmail,
+        }),
+      ),
+    );
 
-    const events = response.data.items || [];
+    const events = results.flatMap((result, index) => {
+      if (result.status === "rejected") {
+        this.logger.warn("Failed to fetch events for calendar", {
+          calendarId: this.connection.calendarIds[index],
+          error: result.reason,
+        });
+        return [];
+      }
+      return result.value.data.items || [];
+    });
 
     // Filter to events that actually have this attendee
     return events
@@ -64,6 +78,7 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
           (a) => a.email?.toLowerCase() === attendeeEmail.toLowerCase(),
         ),
       )
+      .slice(0, maxResults)
       .map((event) => this.parseEvent(event));
   }
 
@@ -77,19 +92,36 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
     maxResults?: number;
   }): Promise<CalendarEvent[]> {
     const client = await this.getClient();
+    const perCalendarLimit = maxResults || 10;
 
-    const response = await client.events.list({
-      calendarId: "primary",
-      timeMin: timeMin?.toISOString(),
-      timeMax: timeMax?.toISOString(),
-      maxResults: maxResults || 10,
-      singleEvents: true,
-      orderBy: "startTime",
+    const results = await Promise.allSettled(
+      this.connection.calendarIds.map((calendarId) =>
+        client.events.list({
+          calendarId,
+          timeMin: timeMin?.toISOString(),
+          timeMax: timeMax?.toISOString(),
+          maxResults: perCalendarLimit,
+          singleEvents: true,
+          orderBy: "startTime",
+        }),
+      ),
+    );
+
+    const events = results.flatMap((result, index) => {
+      if (result.status === "rejected") {
+        this.logger.warn("Failed to fetch events for calendar", {
+          calendarId: this.connection.calendarIds[index],
+          error: result.reason,
+        });
+        return [];
+      }
+      return result.value.data.items || [];
     });
 
-    const events = response.data.items || [];
-
-    return events.map((event) => this.parseEvent(event));
+    return events
+      .map((event) => this.parseEvent(event))
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+      .slice(0, perCalendarLimit);
   }
 
   private parseEvent(event: calendar_v3.Schema$Event) {

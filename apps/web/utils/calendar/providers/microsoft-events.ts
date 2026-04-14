@@ -8,6 +8,7 @@ import type { Logger } from "@/utils/logger";
 
 export interface MicrosoftCalendarConnectionParams {
   accessToken: string | null;
+  calendarIds: string[];
   emailAccountId: string;
   expiresAt: number | null;
   refreshToken: string | null;
@@ -60,18 +61,30 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
   }): Promise<CalendarEvent[]> {
     const client = await this.getClient();
 
-    // Use calendarView endpoint which correctly returns events overlapping the time range
-    const response = await client
-      .api("/me/calendar/calendarView")
-      .query({
-        startDateTime: timeMin.toISOString(),
-        endDateTime: timeMax.toISOString(),
-      })
-      .top(maxResults * 3) // Fetch more to filter by attendee
-      .orderby("start/dateTime")
-      .get();
+    const results = await Promise.allSettled(
+      this.connection.calendarIds.map((calendarId) =>
+        client
+          .api(`/me/calendars/${calendarId}/calendarView`)
+          .query({
+            startDateTime: timeMin.toISOString(),
+            endDateTime: timeMax.toISOString(),
+          })
+          .top(maxResults * 3) // Fetch more to filter by attendee
+          .orderby("start/dateTime")
+          .get(),
+      ),
+    );
 
-    const events: MicrosoftEvent[] = response.value || [];
+    const events: MicrosoftEvent[] = results.flatMap((result, index) => {
+      if (result.status === "rejected") {
+        this.logger.warn("Failed to fetch events for calendar", {
+          calendarId: this.connection.calendarIds[index],
+          error: result.reason,
+        });
+        return [];
+      }
+      return result.value.value || [];
+    });
 
     // Filter to events that have this attendee
     return events
@@ -100,21 +113,37 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     // calendarView requires both start and end times, default to 30 days from timeMin
     const effectiveTimeMax =
       timeMax ?? new Date(timeMin.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const perCalendarLimit = maxResults || 100;
 
-    // Use calendarView endpoint which correctly returns events overlapping the time range
-    const response = await client
-      .api("/me/calendar/calendarView")
-      .query({
-        startDateTime: timeMin.toISOString(),
-        endDateTime: effectiveTimeMax.toISOString(),
-      })
-      .top(maxResults || 100)
-      .orderby("start/dateTime")
-      .get();
+    const results = await Promise.allSettled(
+      this.connection.calendarIds.map((calendarId) =>
+        client
+          .api(`/me/calendars/${calendarId}/calendarView`)
+          .query({
+            startDateTime: timeMin.toISOString(),
+            endDateTime: effectiveTimeMax.toISOString(),
+          })
+          .top(perCalendarLimit)
+          .orderby("start/dateTime")
+          .get(),
+      ),
+    );
 
-    const events: MicrosoftEvent[] = response.value || [];
+    const events: MicrosoftEvent[] = results.flatMap((result, index) => {
+      if (result.status === "rejected") {
+        this.logger.warn("Failed to fetch events for calendar", {
+          calendarId: this.connection.calendarIds[index],
+          error: result.reason,
+        });
+        return [];
+      }
+      return result.value.value || [];
+    });
 
-    return events.map((event) => this.parseEvent(event));
+    return events
+      .map((event) => this.parseEvent(event))
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+      .slice(0, perCalendarLimit);
   }
 
   private parseEvent(event: MicrosoftEvent) {

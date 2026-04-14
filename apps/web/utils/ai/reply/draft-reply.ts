@@ -36,6 +36,19 @@ Don't suggest meeting times or mention availability unless specific calendar inf
 
 Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
+
+Confidence self-assessment:
+The user has downstream settings that skip drafts when confidence is low. Rate your own confidence honestly so that machinery works; do not inflate it.
+- HIGH_CONFIDENCE: the intent is unambiguous and the correct response can be grounded in the thread, knowledge base, user-provided context, or tool/calendar output. Only use this when nearly any reasonable user in this role would send a substantively similar reply.
+- STANDARD: the reply is plausible and useful but there is some uncertainty about tone, specific facts, or what the user would actually decide.
+- ALL_EMAILS: you are guessing, or the reply requires information, preferences, opinions, or decisions you cannot verify from the provided context.
+Use ALL_EMAILS (low confidence) whenever a good reply would require any of the following that are not already supplied:
+- The user's personal opinion, judgment, preference, or feelings on a subjective matter.
+- A commitment, decision, acceptance, decline, or promise on the user's behalf that they have not already indicated.
+- Private, sensitive, or personal information about the user (health, finances, relationships, plans, credentials, addresses, etc.) that is not present in the provided context.
+- Facts about the user, their company, or third parties that are not grounded in the provided context.
+- Answers to questions where you would otherwise need to fabricate details to produce a complete reply.
+Still produce the best draft you can in the \`reply\` field so it can be shown if the user's settings allow low-confidence drafts, but rate confidence based on what you actually know, not on how fluent the draft reads.
 `;
 
 const defaultWritingStyle = `Keep it concise, direct, and friendly.
@@ -199,7 +212,7 @@ const draftSchema = z.object({
   confidence: z
     .nativeEnum(DraftReplyConfidence)
     .describe(
-      "Required value: ALL_EMAILS, STANDARD, or HIGH_CONFIDENCE. Use ALL_EMAILS when uncertain or context is missing, STANDARD for solid drafts with minor uncertainty, and HIGH_CONFIDENCE only when intent and response are clear.",
+      "Required value: ALL_EMAILS, STANDARD, or HIGH_CONFIDENCE. Follow the confidence self-assessment rules in the system prompt. Use ALL_EMAILS whenever a good reply would require the user's personal opinion, judgment, private information, or facts not grounded in the provided context. Use STANDARD when the draft is plausible but has meaningful uncertainty. Reserve HIGH_CONFIDENCE for cases where intent is unambiguous and the reply is grounded in the provided context.",
     ),
 });
 

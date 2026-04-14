@@ -8,6 +8,7 @@ import {
   PaperclipIcon,
   PlusIcon,
   SquareIcon,
+  XIcon,
 } from "lucide-react";
 import { Messages } from "./messages";
 import { PreviewAttachment } from "./preview-attachment";
@@ -43,7 +44,13 @@ const ACCEPTED_IMAGE_TYPES = [
   "image/gif",
 ];
 
-export function Chat({ open }: { open: boolean }) {
+export function Chat({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose?: () => void;
+}) {
   const {
     chat,
     chatId,
@@ -270,7 +277,7 @@ export function Chat({ open }: { open: boolean }) {
         } as React.CSSProperties
       }
     >
-      <ChatTopBar hasMessages={hasMessages} />
+      <ChatTopBar hasMessages={hasMessages} onClose={onClose} />
       {hasMessages ? (
         <ChatMessagesView
           status={status}
@@ -395,7 +402,13 @@ function NewChatView({
   );
 }
 
-function ChatTopBar({ hasMessages }: { hasMessages: boolean }) {
+function ChatTopBar({
+  hasMessages,
+  onClose,
+}: {
+  hasMessages: boolean;
+  onClose?: () => void;
+}) {
   return (
     <div className="relative mx-auto w-full max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] px-[var(--chat-px)] pt-2">
       <div className="flex items-center justify-end gap-1">
@@ -407,8 +420,20 @@ function ChatTopBar({ hasMessages }: { hasMessages: boolean }) {
         ) : (
           <ChatHistoryDropdown />
         )}
+        {onClose ? <CloseChatButton onClose={onClose} /> : null}
       </div>
     </div>
+  );
+}
+
+function CloseChatButton({ onClose }: { onClose: () => void }) {
+  return (
+    <Tooltip content="Close chat">
+      <Button variant="ghost" size="icon" onClick={onClose}>
+        <XIcon className="size-5" />
+        <span className="sr-only">Close chat</span>
+      </Button>
+    </Tooltip>
   );
 }
 

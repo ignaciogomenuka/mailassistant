@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Chat } from "@/components/assistant-chat/chat";
 import { cn } from "@/utils";
@@ -11,8 +13,37 @@ export function SidebarRight({
   name: string;
   className?: string;
 }) {
-  const { state, openMobile, isMobile } = useSidebar();
+  const { state, setOpen, openMobile, isMobile, closeMobileSidebar } =
+    useSidebar();
   const isOpen = isMobile ? openMobile.includes(name) : state.includes(name);
+
+  const handleClose = useCallback(() => {
+    if (isMobile) {
+      closeMobileSidebar(name);
+    } else {
+      setOpen((prev) => prev.filter((n) => n !== name));
+    }
+  }, [isMobile, name, setOpen, closeMobileSidebar]);
+
+  // Auto-close the chat panel when navigating to a new page so it doesn't
+  // persist across unrelated routes (including when remounting after
+  // visiting a route that does not render this sidebar).
+  const pathname = usePathname();
+  const handleCloseRef = useRef(handleClose);
+  handleCloseRef.current = handleClose;
+  const previousPathnameRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (previousPathnameRef.current !== pathname) {
+      if (previousPathnameRef.current !== null) handleCloseRef.current();
+      previousPathnameRef.current = pathname;
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    return () => {
+      handleCloseRef.current();
+    };
+  }, []);
 
   return (
     <div
@@ -24,7 +55,7 @@ export function SidebarRight({
       )}
     >
       <div className="flex h-full w-full flex-col overflow-hidden">
-        <Chat open={isOpen} />
+        <Chat open={isOpen} onClose={handleClose} />
       </div>
     </div>
   );

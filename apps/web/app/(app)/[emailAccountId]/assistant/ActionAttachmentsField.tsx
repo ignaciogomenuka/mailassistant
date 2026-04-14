@@ -49,16 +49,12 @@ export function ActionAttachmentsField({
   value,
   onChange,
   emailAccountId,
-  contentSetManually,
-  allowAiSelectedSources = true,
   attachmentSources,
   onAttachmentSourcesChange,
 }: {
   value: AttachmentSourceInput[];
   onChange: (value: AttachmentSourceInput[]) => void;
   emailAccountId: string;
-  contentSetManually: boolean;
-  allowAiSelectedSources?: boolean;
   attachmentSources: AttachmentSourceInput[];
   onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
@@ -70,9 +66,8 @@ export function ActionAttachmentsField({
 
   const isConnected = (connectionsData?.connections.length ?? 0) > 0;
   const hasAttachments = value.length > 0;
-  const aiSourceCount = allowAiSelectedSources ? attachmentSources.length : 0;
-  const hasAiSources = aiSourceCount > 0;
-  const totalCount = value.length + aiSourceCount;
+  const hasAiSources = attachmentSources.length > 0;
+  const totalCount = value.length + attachmentSources.length;
 
   const selectedKeys = useMemo(
     () => new Set(value.map((source) => getSourceKey(source))),
@@ -148,7 +143,7 @@ export function ActionAttachmentsField({
         </div>
       )}
 
-      {isConnected && contentSetManually && (
+      {isConnected && (
         <div className="mt-2">
           <button
             type="button"
@@ -200,7 +195,7 @@ export function ActionAttachmentsField({
         </div>
       )}
 
-      {isConnected && allowAiSelectedSources && (
+      {isConnected && (
         <div className="mt-2">
           <button
             type="button"

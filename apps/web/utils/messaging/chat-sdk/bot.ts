@@ -2603,6 +2603,21 @@ export function normalizeMessagingUserText({ text }: { text: string }) {
   return text.trim();
 }
 
+export function buildPendingEmailCardFallbackText(normalizedText: string) {
+  const failureGuidance =
+    "I couldn't show the Send button right now. Ask me to prepare the draft again.";
+
+  if (
+    normalizedText
+      .toLowerCase()
+      .includes("i couldn't show the send button right now")
+  ) {
+    return normalizedText;
+  }
+
+  return `${normalizedText}\n\n${failureGuidance}`;
+}
+
 function isAffirmativeReactionEvent(event: ReactionEvent) {
   return (
     isAffirmativeReactionToken(event.rawEmoji) ||
@@ -2623,21 +2638,6 @@ function isAffirmativeReactionToken(token: string) {
     .replace(/[\u{1F3FB}-\u{1F3FF}]/gu, "");
 
   return AFFIRMATIVE_REACTION_EMOJI_TOKENS.has(normalized);
-}
-
-export function buildPendingEmailCardFallbackText(normalizedText: string) {
-  const failureGuidance =
-    "I couldn't show the Send button right now. Ask me to prepare the draft again.";
-
-  if (
-    normalizedText
-      .toLowerCase()
-      .includes("i couldn't show the send button right now")
-  ) {
-    return normalizedText;
-  }
-
-  return `${normalizedText}\n\n${failureGuidance}`;
 }
 
 function getMessagingAssistantPostPayload({

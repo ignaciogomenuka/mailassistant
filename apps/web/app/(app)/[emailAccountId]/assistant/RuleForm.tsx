@@ -696,8 +696,8 @@ function restorePersistedActionSequence({
 
   existing.sort(
     (a, b) =>
-      ((a.id && originalIndexById.get(a.id)) ?? 0) -
-      ((b.id && originalIndexById.get(b.id)) ?? 0),
+      (originalIndexById.get(a.id ?? "") ?? 0) -
+      (originalIndexById.get(b.id ?? "") ?? 0),
   );
 
   return [...existing, ...added];

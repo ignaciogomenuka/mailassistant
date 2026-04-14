@@ -15,6 +15,7 @@ import {
 } from "@/components/ai-elements/conversation";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { Loader } from "@/components/ai-elements/loader";
+import { useChat } from "@/providers/ChatProvider";
 
 interface MessagesProps {
   footer?: ReactNode;
@@ -32,6 +33,7 @@ export function Messages({
   setInput,
   footer,
 }: MessagesProps) {
+  const { persistedMessageIds } = useChat();
   const disableConfirm = status === "streaming" || status === "submitted";
   const emailLookup = useMemo(() => buildEmailLookup(messages), [messages]);
   const firstAssistantIndex = useMemo(
@@ -66,6 +68,9 @@ export function Messages({
                           }
                           disableConfirm={disableConfirm}
                           hideInlineEmailCards={hideInlineEmailCards}
+                          isPersistedMessage={persistedMessageIds.has(
+                            message.id,
+                          )}
                           messageId={message.id}
                           partIndex={partIndex}
                           threadLookup={emailLookup}

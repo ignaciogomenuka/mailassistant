@@ -36,8 +36,6 @@ const CONFIRMATION_IN_PROGRESS_ERROR =
 const SAVE_MEMORY_CONFIRMATION_IN_PROGRESS_ERROR =
   "Memory save confirmation already in progress";
 const CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
-const PENDING_ACTION_LOOKUP_MAX_ATTEMPTS = 5;
-const PENDING_ACTION_LOOKUP_RETRY_MS = 500;
 const CONFIRMATION_PERSIST_MAX_ATTEMPTS = 3;
 const SENT_MESSAGE_RESOLVE_MAX_ATTEMPTS = 5;
 const SENT_MESSAGE_RESOLVE_RETRY_MS = 500;
@@ -711,109 +709,70 @@ async function findChatMessageForPendingAction({
   matchParts: (parts: unknown) => boolean;
   logPrefix: string;
 }) {
-  for (
-    let attempt = 1;
-    attempt <= PENDING_ACTION_LOOKUP_MAX_ATTEMPTS;
-    attempt++
-  ) {
-    const hintedChatMessage = chatMessageId
-      ? await prisma.chatMessage.findFirst({
-          where: {
-            id: chatMessageId,
-            chat: { id: chatId, emailAccountId },
-          },
-          select: {
-            id: true,
-            chatId: true,
-            updatedAt: true,
-            parts: true,
-          },
-        })
-      : null;
-
-    const hintedMatch =
-      hintedChatMessage && matchParts(hintedChatMessage.parts)
-        ? hintedChatMessage
-        : null;
-
-    if (hintedMatch) {
-      if (attempt > 1) {
-        logger.info(`${logPrefix} resolved pending action after waiting`, {
-          chatId,
-          requestedChatMessageId: chatMessageId,
-          resolvedChatMessageId: hintedMatch.id,
-          attempt,
-        });
-      }
-      return hintedMatch;
-    }
-
-    const assistantMessages =
-      (await prisma.chatMessage.findMany({
+  const hintedChatMessage = chatMessageId
+    ? await prisma.chatMessage.findFirst({
         where: {
-          role: "assistant",
+          id: chatMessageId,
           chat: { id: chatId, emailAccountId },
         },
-        orderBy: { updatedAt: "desc" },
         select: {
           id: true,
           chatId: true,
           updatedAt: true,
           parts: true,
         },
-      })) ?? [];
+      })
+    : null;
 
-    const matchingMessages = assistantMessages.filter((message) =>
-      matchParts(message.parts),
-    );
+  if (hintedChatMessage && matchParts(hintedChatMessage.parts)) {
+    return hintedChatMessage;
+  }
 
-    if (matchingMessages.length === 1) {
+  const assistantMessages =
+    (await prisma.chatMessage.findMany({
+      where: {
+        role: "assistant",
+        chat: { id: chatId, emailAccountId },
+      },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        chatId: true,
+        updatedAt: true,
+        parts: true,
+      },
+    })) ?? [];
+
+  const matchingMessages = assistantMessages.filter((message) =>
+    matchParts(message.parts),
+  );
+
+  if (matchingMessages.length === 1) {
+    if (chatMessageId && matchingMessages[0].id !== chatMessageId) {
       logger.warn(`${logPrefix} resolved pending action by tool lookup`, {
         chatId,
         requestedChatMessageId: chatMessageId,
         resolvedChatMessageId: matchingMessages[0].id,
-        attempt,
-      });
-      return matchingMessages[0];
-    }
-
-    if (matchingMessages.length > 1) {
-      logger.warn(`${logPrefix} found multiple pending action matches`, {
-        chatId,
-        requestedChatMessageId: chatMessageId,
-        matchedChatMessageIds: matchingMessages.map((message) => message.id),
-        attempt,
-      });
-      return matchingMessages[0];
-    }
-
-    if (attempt < PENDING_ACTION_LOOKUP_MAX_ATTEMPTS) {
-      logger.info(`${logPrefix} waiting for pending action persistence`, {
-        chatId,
-        requestedChatMessageId: chatMessageId,
-        attempt,
-        hintedMessageFound: Boolean(hintedChatMessage),
-        assistantMessageCount: assistantMessages.length,
-        recentAssistantToolCallIds: assistantMessages
-          .slice(0, 5)
-          .flatMap((message) => getToolCallIdsFromParts(message.parts)),
-      });
-      await wait(PENDING_ACTION_LOOKUP_RETRY_MS);
-    } else {
-      logger.warn(`${logPrefix} pending action not found`, {
-        chatId,
-        requestedChatMessageId: chatMessageId,
-        hintedMessageFound: Boolean(hintedChatMessage),
-        assistantMessageCount: assistantMessages.length,
-        recentAssistantMessageIds: assistantMessages
-          .slice(0, 5)
-          .map((message) => message.id),
-        recentAssistantToolCallIds: assistantMessages
-          .slice(0, 5)
-          .flatMap((message) => getToolCallIdsFromParts(message.parts)),
       });
     }
+    return matchingMessages[0];
   }
+
+  if (matchingMessages.length > 1) {
+    logger.warn(`${logPrefix} found multiple pending action matches`, {
+      chatId,
+      requestedChatMessageId: chatMessageId,
+      matchedChatMessageIds: matchingMessages.map((message) => message.id),
+    });
+    return matchingMessages[0];
+  }
+
+  logger.warn(`${logPrefix} pending action not found`, {
+    chatId,
+    requestedChatMessageId: chatMessageId,
+    hintedMessageFound: Boolean(hintedChatMessage),
+    assistantMessageCount: assistantMessages.length,
+  });
 
   return null;
 }
@@ -1808,15 +1767,6 @@ function getPendingActionContentPatch(
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function getToolCallIdsFromParts(parts: unknown): string[] {
-  if (!Array.isArray(parts)) return [];
-
-  return parts.flatMap((part) => {
-    if (!isRecord(part) || typeof part.toolCallId !== "string") return [];
-    return [part.toolCallId];
-  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -214,7 +214,7 @@ export function RuleForm({
       }
 
       if (data.id) {
-        const orderedActionsToSubmit = preserveOriginalActionOrder({
+        const orderedActionsToSubmit = restorePersistedActionSequence({
           actions: actionsToSubmit,
           originalActions: rule.actions,
         });
@@ -666,7 +666,7 @@ function allowMultipleConditions(systemType: SystemType | null | undefined) {
   );
 }
 
-function preserveOriginalActionOrder({
+function restorePersistedActionSequence({
   actions,
   originalActions,
 }: {

@@ -413,14 +413,24 @@ describe("chat inbox tools", () => {
     expect(maxInFlight).toBeLessThanOrEqual(3);
   });
 
-  it("returns a descriptive error when label_threads receives an unknown labelName", async () => {
-    const getThreadMessages = vi.fn();
+  it("auto-creates a missing label when label_threads is called with an unknown labelName", async () => {
+    const getThreadMessages = vi
+      .fn()
+      .mockImplementation(async (threadId) => [
+        { id: `${threadId}-message-1`, threadId },
+      ]);
     const getLabelByName = vi.fn().mockResolvedValue(null);
-    const labelMessage = vi.fn();
+    const createLabel = vi.fn().mockResolvedValue({
+      id: "Label_new",
+      name: "Finance",
+      type: "user",
+    });
+    const labelMessage = vi.fn().mockResolvedValue(undefined);
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       getThreadMessages,
       getLabelByName,
+      createLabel,
       labelMessage,
     } as any);
 
@@ -437,14 +447,40 @@ describe("chat inbox tools", () => {
       threadIds: ["thread-1"],
     });
 
-    expect(result).toEqual({
-      error:
-        'Label "Finance" does not exist. Use createOrGetLabel first if you want to create it.',
-    });
     expect(getLabelByName).toHaveBeenCalledWith("Finance");
-    expect(getLabelByName).toHaveBeenCalledTimes(1);
-    expect(getThreadMessages).not.toHaveBeenCalled();
-    expect(labelMessage).not.toHaveBeenCalled();
+    expect(createLabel).toHaveBeenCalledWith("Finance");
+    expect(labelMessage).toHaveBeenCalledWith({
+      messageId: "thread-1-message-1",
+      labelId: "Label_new",
+      labelName: "Finance",
+    });
+    expect(result).toMatchObject({
+      action: "label_threads",
+      success: true,
+      failedCount: 0,
+      successCount: 1,
+      requestedCount: 1,
+      labelId: "Label_new",
+      labelName: "Finance",
+    });
+  });
+
+  it("documents label_threads as add-only in the manageInbox action description", () => {
+    const toolInstance = manageInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const actionDescription = (
+      toolInstance.inputSchema as any
+    ).shape.action.description.toLowerCase();
+
+    expect(actionDescription).toContain("label_threads");
+    expect(actionDescription).toMatch(
+      /add[- ]?only|does not archive|never archive/,
+    );
   });
 
   it("marks a thread labeling action as failed when any message label call fails", async () => {

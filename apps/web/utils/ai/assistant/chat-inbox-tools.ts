@@ -486,7 +486,7 @@ function manageInboxInputSchema(provider: string) {
     action: z
       .enum(manageInboxActions)
       .describe(
-        "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. label_threads: apply a label (requires labelName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
+        "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. label_threads: add-only — apply a label to the given threads (requires labelName; auto-creates the label if it does not exist; does not archive, trash, or mark read). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
       ),
     threadIds: threadIdsSchema
       .nullish()
@@ -1147,15 +1147,17 @@ async function resolveThreadLabel({
 }) {
   const existingLabel = await emailProvider.getLabelByName(labelName);
 
-  if (!existingLabel) {
-    throw new Error(
-      `Label "${labelName}" does not exist. Use createOrGetLabel first if you want to create it.`,
-    );
+  if (existingLabel) {
+    return {
+      labelId: existingLabel.id,
+      labelName: existingLabel.name,
+    };
   }
 
+  const createdLabel = await emailProvider.createLabel(labelName);
   return {
-    labelId: existingLabel.id,
-    labelName: existingLabel.name,
+    labelId: createdLabel.id,
+    labelName: createdLabel.name,
   };
 }
 

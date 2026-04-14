@@ -23,6 +23,15 @@ vi.mock("@/utils/redis/reply", () => ({
   getReplyWithConfidence: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock("@/utils/user/get", () => ({
+  getEmailAccountWithAiAndTokens: vi.fn().mockResolvedValue({
+    id: "account-1",
+    userId: "user-1",
+    email: "user@example.com",
+    user: { aiProvider: null, aiModel: null, aiApiKey: null },
+  }),
+}));
+
 vi.mock("@/utils/attachments/draft-attachments", () => ({
   resolveDraftAttachments: vi.fn().mockResolvedValue([]),
   selectDraftAttachmentsForRule: vi.fn().mockResolvedValue({
@@ -116,6 +125,9 @@ describe("runActionFunction", () => {
       ruleId: "rule-1",
     });
 
+    // On cache hit we must not re-run the selection LLM call.
+    expect(selectDraftAttachmentsForRule).not.toHaveBeenCalled();
+
     expect(resolveDraftAttachments).toHaveBeenCalledWith({
       emailAccountId: "account-1",
       userId: "user-1",
@@ -147,10 +159,29 @@ describe("runActionFunction", () => {
     );
   });
 
-  it("skips draft attachments when the rule cache is missing", async () => {
+  it("re-runs attachment selection when the rule cache is missing", async () => {
     const client = createMockEmailProvider();
 
     vi.mocked(getReplyWithConfidence).mockResolvedValue(null);
+    vi.mocked(selectDraftAttachmentsForRule).mockResolvedValue({
+      selectedAttachments: [
+        {
+          driveConnectionId: "drive-1",
+          fileId: "file-1",
+          filename: "lease.pdf",
+          mimeType: "application/pdf",
+          reason: "Matched the requested property",
+        },
+      ],
+      attachmentContext: "<attachment>lease.pdf</attachment>",
+    });
+    vi.mocked(resolveDraftAttachments).mockResolvedValue([
+      {
+        filename: "lease.pdf",
+        content: Buffer.from("pdf"),
+        contentType: "application/pdf",
+      },
+    ]);
 
     await runActionFunction({
       client,
@@ -172,13 +203,28 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(selectDraftAttachmentsForRule).not.toHaveBeenCalled();
-    expect(resolveDraftAttachments).not.toHaveBeenCalled();
+    expect(selectDraftAttachmentsForRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ruleId: "rule-1",
+      }),
+    );
+    expect(resolveDraftAttachments).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selectedAttachments: [
+          expect.objectContaining({ fileId: "file-1", filename: "lease.pdf" }),
+        ],
+      }),
+    );
     expect(client.draftEmail).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         content: "Attached the requested PDF.",
-        attachments: [],
+        attachments: [
+          expect.objectContaining({
+            filename: "lease.pdf",
+            contentType: "application/pdf",
+          }),
+        ],
       }),
       "user@example.com",
       expect.objectContaining({ id: "executed-rule-1" }),

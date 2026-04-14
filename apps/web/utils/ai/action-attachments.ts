@@ -4,10 +4,15 @@ import {
   type SelectedAttachment,
   attachmentSourceInputSchema,
 } from "@/utils/attachments/source-schema";
-import { resolveDraftAttachments } from "@/utils/attachments/draft-attachments";
+import {
+  resolveDraftAttachments,
+  selectDraftAttachmentsForRule,
+} from "@/utils/attachments/draft-attachments";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import type { Logger } from "@/utils/logger";
 import { getReplyWithConfidence } from "@/utils/redis/reply";
+import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
+import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 
 export async function resolveActionAttachments({
   email,
@@ -79,22 +84,51 @@ async function getDraftSelectedAttachments({
   logger: Logger;
 }): Promise<SelectedAttachment[]> {
   if (!executedRule.ruleId) return [];
+  const ruleId = executedRule.ruleId;
 
   const cachedDraft = await getReplyWithConfidence({
     emailAccountId,
     messageId: email.id,
-    ruleId: executedRule.ruleId,
+    ruleId,
   });
 
   if (cachedDraft) {
     return cachedDraft.attachments ?? [];
   }
 
-  logger.warn("Draft attachment cache missing, skipping attachments", {
-    messageId: email.id,
-    ruleId: executedRule.ruleId,
+  // Cache-miss fallback: re-run attachment selection so drafts created outside
+  // the normal draft-generation flow (e.g. scheduled/delayed actions, expired
+  // cache, a rule whose draft was generated before attachment sources were
+  // configured) still get their AI-selected attachments. This costs an extra
+  // LLM call but is scoped to rules that actually have attachment sources
+  // configured (selectDraftAttachmentsForRule short-circuits otherwise).
+  logger.info(
+    "Draft attachment cache miss, running attachment selection inline",
+    {
+      messageId: email.id,
+      ruleId,
+    },
+  );
+
+  const emailAccount = await getEmailAccountWithAiAndTokens({ emailAccountId });
+  if (!emailAccount) {
+    logger.warn("Email account not found during attachment selection", {
+      messageId: email.id,
+      ruleId,
+    });
+    return [];
+  }
+
+  const emailContent = emailToContentForAI(email);
+
+  const { selectedAttachments } = await selectDraftAttachmentsForRule({
+    emailAccount,
+    ruleId,
+    emailContent,
+    logger,
   });
-  return [];
+
+  return selectedAttachments;
 }
 
 function parseStaticAttachments(raw: unknown): SelectedAttachment[] {

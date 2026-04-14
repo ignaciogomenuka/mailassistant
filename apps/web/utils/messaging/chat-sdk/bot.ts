@@ -423,9 +423,8 @@ function registerMessagingHandlers({
     if (!event.added) return;
     if (!isAffirmativeReactionEvent(event)) return;
 
-    const provider = event.thread.adapter.name;
-    if (provider !== "slack" && provider !== "teams" && provider !== "telegram")
-      return;
+    const provider = getSupportedPlatform(event.thread.adapter.name);
+    if (!provider) return;
 
     const handlerLogger = getHandlerLogger();
     const handled = await processMessagingAssistantMessage({
@@ -2633,7 +2632,6 @@ function isAffirmativeReactionToken(token: string) {
   if (AFFIRMATIVE_REACTION_ALIASES.has(alias)) return true;
 
   const normalized = alias
-    .toLowerCase()
     .replaceAll("\uFE0F", "")
     .replace(/[\u{1F3FB}-\u{1F3FF}]/gu, "");
 

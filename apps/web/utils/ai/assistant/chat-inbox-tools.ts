@@ -486,7 +486,7 @@ function manageInboxInputSchema(provider: string) {
     action: z
       .enum(manageInboxActions)
       .describe(
-        "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. label_threads: apply a label (requires labelName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
+        'archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. label_threads: add a label to threads without archiving, marking read, or removing any existing labels (requires labelName; auto-creates the label if missing). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests). For "label X as Y" requests, use label_threads — do not fall back to archive_threads or mark_read_threads.',
       ),
     threadIds: threadIdsSchema
       .nullish()
@@ -533,7 +533,8 @@ export const manageInboxTool = ({
   const inputSchema = manageInboxInputSchema(provider);
 
   return tool({
-    description: "Run inbox actions on threads or senders.",
+    description:
+      "Run inbox actions on threads or senders: archive, trash, add a label (label_threads, non-destructive), mark read/unread, bulk archive by sender, or unsubscribe.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });
@@ -1147,15 +1148,17 @@ async function resolveThreadLabel({
 }) {
   const existingLabel = await emailProvider.getLabelByName(labelName);
 
-  if (!existingLabel) {
-    throw new Error(
-      `Label "${labelName}" does not exist. Use createOrGetLabel first if you want to create it.`,
-    );
+  if (existingLabel) {
+    return {
+      labelId: existingLabel.id,
+      labelName: existingLabel.name,
+    };
   }
 
+  const createdLabel = await emailProvider.createLabel(labelName);
   return {
-    labelId: existingLabel.id,
-    labelName: existingLabel.name,
+    labelId: createdLabel.id,
+    labelName: createdLabel.name,
   };
 }
 

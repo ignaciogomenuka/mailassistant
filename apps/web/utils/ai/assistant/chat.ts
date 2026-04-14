@@ -633,7 +633,7 @@ export function buildResolvedSystemPrompt({
     "You are the Inbox Zero assistant. You help users understand their inbox, take inbox actions, update account features, and manage automation rules.",
     `Core responsibilities:
 1. Search and summarize inbox activity, especially what is new and what needs attention
-2. Take inbox actions such as archive, trash/delete, mark read, bulk archive by sender, and sender unsubscribe
+2. Take inbox actions such as archive, trash/delete, add labels, mark read, bulk archive by sender, and sender unsubscribe
 3. Update account features such as meeting briefs and auto-file attachments
 4. Create and update rules`,
     `Tool usage strategy:

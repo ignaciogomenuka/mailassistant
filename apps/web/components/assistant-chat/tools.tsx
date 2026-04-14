@@ -549,14 +549,7 @@ function EmailActionResult({
         ...(hasEdits ? { contentOverride: editedBody } : {}),
       };
 
-      let result = await confirmAssistantEmailAction(emailAccountId, input);
-
-      // Message may not be persisted yet if clicked right after
-      // streaming finished. Retry once after a short wait.
-      if (result?.serverError === "Chat message not found") {
-        await new Promise((r) => setTimeout(r, 2000));
-        result = await confirmAssistantEmailAction(emailAccountId, input);
-      }
+      const result = await confirmAssistantEmailAction(emailAccountId, input);
 
       if (result?.serverError) {
         toastError({ description: result.serverError });
@@ -1415,7 +1408,7 @@ function LearnedPatternsActions({ ruleId }: { ruleId: string }) {
   );
 }
 
-function ToolCard({ children }: { children: React.ReactNode }) {
+function _ToolCard({ children }: { children: React.ReactNode }) {
   return <Card className="space-y-3 p-4">{children}</Card>;
 }
 

@@ -217,7 +217,9 @@ function searchInboxInputSchema(provider: string) {
     pageToken: z
       .string()
       .nullish()
-      .describe("Use the page token returned from a prior search to paginate."),
+      .describe(
+        "Page token from a prior search result's nextPageToken to fetch the next page. Required to retrieve results beyond the first page when hasMore is true.",
+      ),
   });
 }
 
@@ -234,7 +236,7 @@ export const searchInboxTool = ({
 }) =>
   tool({
     description:
-      "Search inbox messages and return concise message metadata for triage and summarization.",
+      'Search inbox messages and return concise message metadata for triage and summarization. Returns one page of results (up to `limit`, max 50). When the response includes `hasMore: true`, more matches exist — call this tool again with the returned `nextPageToken` to fetch subsequent pages. For any request to act on ALL matching emails (for example "archive all unread older than 3 years", "label everything from X"), keep paginating and running the action on each page until `hasMore` is false. Do not claim a bulk action is complete while `hasMore` is true; report the actual cumulative count processed across pages.',
     inputSchema: searchInboxInputSchema(provider),
     execute: async ({ query, limit, pageToken }) => {
       trackToolCall({ tool: "search_inbox", email, logger });
@@ -265,10 +267,17 @@ export const searchInboxTool = ({
           .slice(0, limit)
           .map((message) => mapMessageForSearchResult(message, labelsById));
 
+        const hasMore = Boolean(nextPageToken);
+
         return {
           queryUsed: query,
           totalReturned: items.length,
+          hasMore,
           nextPageToken,
+          ...(hasMore && {
+            paginationHint:
+              "There are more results matching this query. Call searchInbox again with this pageToken to fetch the next page. Do not claim the operation is complete while hasMore is true.",
+          }),
           summary: summarizeSearchResults(items),
           messages: items,
         };
@@ -533,7 +542,8 @@ export const manageInboxTool = ({
   const inputSchema = manageInboxInputSchema(provider);
 
   return tool({
-    description: "Run inbox actions on threads or senders.",
+    description:
+      "Run inbox actions on threads or senders. Accepts at most 100 threadIds per call. When the user wants to act on more than 100 matching threads, split them into multiple manageInbox calls across pages from searchInbox (see its pagination rules) and keep going until every matching thread has been processed.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });

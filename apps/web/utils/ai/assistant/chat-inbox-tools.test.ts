@@ -7,6 +7,7 @@ import {
   forwardEmailTool,
   manageInboxTool,
   replyEmailTool,
+  searchInboxTool,
   sendEmailTool,
 } from "./chat-inbox-tools";
 
@@ -489,5 +490,84 @@ describe("chat inbox tools", () => {
       requestedCount: 1,
       failedThreadIds: ["thread-1"],
     });
+  });
+
+  it("searchInbox surfaces hasMore and a pagination hint when more pages exist", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [
+        {
+          id: "m1",
+          threadId: "t1",
+          labelIds: [],
+          headers: { from: "sender@example.com", subject: "Hi" },
+          snippet: "",
+        },
+      ],
+      nextPageToken: "token-abc",
+    });
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    } as any);
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = (await (toolInstance.execute as any)({
+      query: "older_than:3y is:unread",
+      limit: 50,
+    })) as {
+      hasMore: boolean;
+      nextPageToken?: string | null;
+      paginationHint?: string;
+    };
+
+    expect(result.hasMore).toBe(true);
+    expect(result.nextPageToken).toBe("token-abc");
+    expect(result.paginationHint).toBeDefined();
+  });
+
+  it("searchInbox marks hasMore false and omits pagination hint when there are no more pages", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [
+        {
+          id: "m1",
+          threadId: "t1",
+          labelIds: [],
+          headers: { from: "sender@example.com", subject: "Hi" },
+          snippet: "",
+        },
+      ],
+      nextPageToken: undefined,
+    });
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    } as any);
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = (await (toolInstance.execute as any)({
+      query: "older_than:3y is:unread",
+      limit: 50,
+    })) as {
+      hasMore: boolean;
+      nextPageToken?: string | null;
+      paginationHint?: string;
+    };
+
+    expect(result.hasMore).toBe(false);
+    expect(result.paginationHint).toBeUndefined();
   });
 });

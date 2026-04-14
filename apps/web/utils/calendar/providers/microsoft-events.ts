@@ -8,6 +8,7 @@ import type { Logger } from "@/utils/logger";
 
 export interface MicrosoftCalendarConnectionParams {
   accessToken: string | null;
+  calendarIds?: string[];
   emailAccountId: string;
   expiresAt: number | null;
   refreshToken: string | null;
@@ -47,6 +48,11 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     });
   }
 
+  private getCalendarIds(): string[] | null {
+    const ids = this.connection.calendarIds;
+    return ids && ids.length > 0 ? ids : null;
+  }
+
   async fetchEventsWithAttendee({
     attendeeEmail,
     timeMin,
@@ -59,21 +65,33 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     maxResults: number;
   }): Promise<CalendarEvent[]> {
     const client = await this.getClient();
+    const paths = this.buildCalendarViewPaths();
 
-    // Use calendarView endpoint which correctly returns events overlapping the time range
-    const response = await client
-      .api("/me/calendar/calendarView")
-      .query({
-        startDateTime: timeMin.toISOString(),
-        endDateTime: timeMax.toISOString(),
-      })
-      .top(maxResults * 3) // Fetch more to filter by attendee
-      .orderby("start/dateTime")
-      .get();
+    const results = await Promise.allSettled(
+      paths.map((path) =>
+        client
+          .api(path)
+          .query({
+            startDateTime: timeMin.toISOString(),
+            endDateTime: timeMax.toISOString(),
+          })
+          .top(maxResults * 3)
+          .orderby("start/dateTime")
+          .get(),
+      ),
+    );
 
-    const events: MicrosoftEvent[] = response.value || [];
+    const events = results.flatMap((result, index) => {
+      if (result.status === "fulfilled") {
+        return (result.value?.value ?? []) as MicrosoftEvent[];
+      }
+      this.logger.error("Error fetching Microsoft events with attendee", {
+        path: paths[index],
+        error: result.reason,
+      });
+      return [];
+    });
 
-    // Filter to events that have this attendee
     return events
       .filter((event) =>
         event.attendees?.some(
@@ -82,8 +100,9 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
             attendeeEmail.toLowerCase(),
         ),
       )
-      .slice(0, maxResults)
-      .map((event) => this.parseEvent(event));
+      .map((event) => this.parseEvent(event))
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+      .slice(0, maxResults);
   }
 
   async fetchEvents({
@@ -100,21 +119,45 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     // calendarView requires both start and end times, default to 30 days from timeMin
     const effectiveTimeMax =
       timeMax ?? new Date(timeMin.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const effectiveMaxResults = maxResults || 100;
 
-    // Use calendarView endpoint which correctly returns events overlapping the time range
-    const response = await client
-      .api("/me/calendar/calendarView")
-      .query({
-        startDateTime: timeMin.toISOString(),
-        endDateTime: effectiveTimeMax.toISOString(),
-      })
-      .top(maxResults || 100)
-      .orderby("start/dateTime")
-      .get();
+    const paths = this.buildCalendarViewPaths();
 
-    const events: MicrosoftEvent[] = response.value || [];
+    const results = await Promise.allSettled(
+      paths.map((path) =>
+        client
+          .api(path)
+          .query({
+            startDateTime: timeMin.toISOString(),
+            endDateTime: effectiveTimeMax.toISOString(),
+          })
+          .top(effectiveMaxResults)
+          .orderby("start/dateTime")
+          .get(),
+      ),
+    );
 
-    return events.map((event) => this.parseEvent(event));
+    const events = results.flatMap((result, index) => {
+      if (result.status === "fulfilled") {
+        return (result.value?.value ?? []) as MicrosoftEvent[];
+      }
+      this.logger.error("Error fetching Microsoft events", {
+        path: paths[index],
+        error: result.reason,
+      });
+      return [];
+    });
+
+    return events
+      .map((event) => this.parseEvent(event))
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+      .slice(0, effectiveMaxResults);
+  }
+
+  private buildCalendarViewPaths(): string[] {
+    const calendarIds = this.getCalendarIds();
+    if (!calendarIds) return ["/me/calendar/calendarView"];
+    return calendarIds.map((id) => `/me/calendars/${id}/calendarView`);
   }
 
   private parseEvent(event: MicrosoftEvent) {

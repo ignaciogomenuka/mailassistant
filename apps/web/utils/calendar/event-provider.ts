@@ -24,6 +24,10 @@ export async function createCalendarEventProviders(
       accessToken: true,
       refreshToken: true,
       expiresAt: true,
+      calendars: {
+        where: { isEnabled: true },
+        select: { calendarId: true },
+      },
     },
   });
 
@@ -37,6 +41,8 @@ export async function createCalendarEventProviders(
   for (const connection of connections) {
     if (!connection.refreshToken) continue;
 
+    const calendarIds = connection.calendars.map((cal) => cal.calendarId);
+
     try {
       if (isGoogleProvider(connection.provider)) {
         providers.push(
@@ -46,6 +52,7 @@ export async function createCalendarEventProviders(
               refreshToken: connection.refreshToken,
               expiresAt: connection.expiresAt?.getTime() ?? null,
               emailAccountId,
+              calendarIds,
             },
             logger,
           ),
@@ -58,6 +65,7 @@ export async function createCalendarEventProviders(
               refreshToken: connection.refreshToken,
               expiresAt: connection.expiresAt?.getTime() ?? null,
               emailAccountId,
+              calendarIds,
             },
             logger,
           ),

@@ -8,6 +8,7 @@ import type { Logger } from "@/utils/logger";
 
 export interface GoogleCalendarConnectionParams {
   accessToken: string | null;
+  calendarIds?: string[];
   emailAccountId: string;
   expiresAt: number | null;
   refreshToken: string | null;
@@ -32,6 +33,11 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
     });
   }
 
+  private getCalendarIds(): string[] {
+    const ids = this.connection.calendarIds;
+    return ids && ids.length > 0 ? ids : ["primary"];
+  }
+
   async fetchEventsWithAttendee({
     attendeeEmail,
     timeMin,
@@ -44,27 +50,42 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
     maxResults: number;
   }): Promise<CalendarEvent[]> {
     const client = await this.getClient();
+    const calendarIds = this.getCalendarIds();
 
-    const response = await client.events.list({
-      calendarId: "primary",
-      timeMin: timeMin.toISOString(),
-      timeMax: timeMax.toISOString(),
-      maxResults,
-      singleEvents: true,
-      orderBy: "startTime",
-      q: attendeeEmail,
+    const results = await Promise.allSettled(
+      calendarIds.map((calendarId) =>
+        client.events.list({
+          calendarId,
+          timeMin: timeMin.toISOString(),
+          timeMax: timeMax.toISOString(),
+          maxResults,
+          singleEvents: true,
+          orderBy: "startTime",
+          q: attendeeEmail,
+        }),
+      ),
+    );
+
+    const events = results.flatMap((result, index) => {
+      if (result.status === "fulfilled") {
+        return result.value.data.items ?? [];
+      }
+      this.logger.error("Error fetching Google events with attendee", {
+        calendarId: calendarIds[index],
+        error: result.reason,
+      });
+      return [];
     });
 
-    const events = response.data.items || [];
-
-    // Filter to events that actually have this attendee
     return events
       .filter((event) =>
         event.attendees?.some(
           (a) => a.email?.toLowerCase() === attendeeEmail.toLowerCase(),
         ),
       )
-      .map((event) => this.parseEvent(event));
+      .map((event) => this.parseEvent(event))
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+      .slice(0, maxResults);
   }
 
   async fetchEvents({
@@ -77,19 +98,37 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
     maxResults?: number;
   }): Promise<CalendarEvent[]> {
     const client = await this.getClient();
+    const calendarIds = this.getCalendarIds();
+    const effectiveMaxResults = maxResults || 10;
 
-    const response = await client.events.list({
-      calendarId: "primary",
-      timeMin: timeMin?.toISOString(),
-      timeMax: timeMax?.toISOString(),
-      maxResults: maxResults || 10,
-      singleEvents: true,
-      orderBy: "startTime",
+    const results = await Promise.allSettled(
+      calendarIds.map((calendarId) =>
+        client.events.list({
+          calendarId,
+          timeMin: timeMin?.toISOString(),
+          timeMax: timeMax?.toISOString(),
+          maxResults: effectiveMaxResults,
+          singleEvents: true,
+          orderBy: "startTime",
+        }),
+      ),
+    );
+
+    const events = results.flatMap((result, index) => {
+      if (result.status === "fulfilled") {
+        return result.value.data.items ?? [];
+      }
+      this.logger.error("Error fetching Google events", {
+        calendarId: calendarIds[index],
+        error: result.reason,
+      });
+      return [];
     });
 
-    const events = response.data.items || [];
-
-    return events.map((event) => this.parseEvent(event));
+    return events
+      .map((event) => this.parseEvent(event))
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+      .slice(0, effectiveMaxResults);
   }
 
   private parseEvent(event: calendar_v3.Schema$Event) {

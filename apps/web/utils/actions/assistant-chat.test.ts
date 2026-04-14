@@ -3,8 +3,10 @@ import prisma from "@/utils/__mocks__/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
   confirmAssistantEmailAction,
+  confirmAssistantEmailActionForAccount,
   confirmAssistantSaveMemory,
 } from "@/utils/actions/assistant-chat";
+import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -734,6 +736,61 @@ describe("confirmAssistantEmailAction", () => {
 
     expect(result?.data?.confirmationState).toBe("confirmed");
     expect(prisma.chatMessage.findMany).toHaveBeenCalledTimes(1);
+    expect(sendEmailWithHtml).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for pending email persistence for direct confirmations", async () => {
+    vi.useFakeTimers();
+
+    (prisma.emailAccount.findUnique as any).mockResolvedValueOnce({
+      name: "Owner",
+      email: "owner@example.com",
+    });
+
+    prisma.chatMessage.findMany
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([
+        {
+          id: "assistant-message-1",
+          chatId: "chat-1",
+          updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+          parts: [buildPendingSendPart()],
+        },
+      ] as any);
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "assistant-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildProcessingSendPart()],
+    } as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+
+    const sendEmailWithHtml = vi.fn().mockResolvedValue({
+      messageId: "msg-1",
+      threadId: "thr-1",
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      sendEmailWithHtml,
+    } as any);
+
+    const resultPromise = confirmAssistantEmailActionForAccount({
+      chatId: "chat-1",
+      toolCallId: "tool-1",
+      actionType: "send_email",
+      waitForPersistence: true,
+      emailAccountId: "ea_1",
+      provider: "google",
+      logger: createScopedLogger("test/assistant-email-confirmation"),
+    });
+
+    await vi.runAllTimersAsync();
+
+    const result = await resultPromise;
+
+    expect(result.confirmationState).toBe("confirmed");
+    expect(prisma.chatMessage.findMany).toHaveBeenCalledTimes(3);
     expect(sendEmailWithHtml).toHaveBeenCalledTimes(1);
   });
 

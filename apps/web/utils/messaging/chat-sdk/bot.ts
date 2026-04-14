@@ -934,6 +934,7 @@ async function handlePendingEmailConfirmAction({
       chatMessageId: pendingAction.chatMessageId,
       toolCallId: pendingAction.toolCallId,
       actionType: pendingAction.actionType,
+      waitForPersistence: true,
       emailAccountId: chat.emailAccountId,
       provider: emailAccount.account.provider,
       logger,

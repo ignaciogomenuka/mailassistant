@@ -37,6 +37,8 @@ const SAVE_MEMORY_CONFIRMATION_IN_PROGRESS_ERROR =
   "Memory save confirmation already in progress";
 const CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
 const CONFIRMATION_PERSIST_MAX_ATTEMPTS = 3;
+const PENDING_ACTION_PERSIST_WAIT_MS = 2000;
+const PENDING_ACTION_POLL_INTERVAL_MS = 250;
 const SENT_MESSAGE_RESOLVE_MAX_ATTEMPTS = 5;
 const SENT_MESSAGE_RESOLVE_RETRY_MS = 500;
 const SENT_MESSAGE_RESOLVE_LOOKBACK_MS = 60 * 1000;
@@ -133,6 +135,7 @@ export async function confirmAssistantEmailActionForAccount({
   toolCallId,
   actionType,
   contentOverride,
+  waitForPersistence,
   emailAccountId,
   provider,
   logger,
@@ -142,6 +145,7 @@ export async function confirmAssistantEmailActionForAccount({
   toolCallId: string;
   actionType: AssistantPendingEmailActionType;
   contentOverride?: string;
+  waitForPersistence?: boolean;
   emailAccountId: string;
   provider: string;
   logger: Logger;
@@ -152,6 +156,7 @@ export async function confirmAssistantEmailActionForAccount({
     toolCallId,
     actionType,
     emailAccountId,
+    waitForPersistence,
     logger,
   });
 
@@ -701,6 +706,7 @@ async function findChatMessageForPendingAction({
   logger,
   matchParts,
   logPrefix,
+  waitForPersistenceMs,
 }: {
   chatId: string;
   chatMessageId?: string;
@@ -708,72 +714,110 @@ async function findChatMessageForPendingAction({
   logger: Logger;
   matchParts: (parts: unknown) => boolean;
   logPrefix: string;
+  waitForPersistenceMs?: number;
 }) {
-  const hintedChatMessage = chatMessageId
-    ? await prisma.chatMessage.findFirst({
-        where: {
-          id: chatMessageId,
-          chat: { id: chatId, emailAccountId },
-        },
-        select: {
-          id: true,
-          chatId: true,
-          updatedAt: true,
-          parts: true,
-        },
-      })
-    : null;
+  const startedAt = Date.now();
+  let attemptCount = 0;
 
-  if (hintedChatMessage && matchParts(hintedChatMessage.parts)) {
-    return hintedChatMessage;
-  }
+  while (true) {
+    attemptCount += 1;
 
-  const assistantMessages = await prisma.chatMessage.findMany({
-    where: {
-      role: "assistant",
-      chat: { id: chatId, emailAccountId },
-    },
-    orderBy: { updatedAt: "desc" },
-    select: {
-      id: true,
-      chatId: true,
-      updatedAt: true,
-      parts: true,
-    },
-  });
+    const hintedChatMessage = chatMessageId
+      ? await prisma.chatMessage.findFirst({
+          where: {
+            id: chatMessageId,
+            chat: { id: chatId, emailAccountId },
+          },
+          select: {
+            id: true,
+            chatId: true,
+            updatedAt: true,
+            parts: true,
+          },
+        })
+      : null;
 
-  const matchingMessages = assistantMessages.filter((message) =>
-    matchParts(message.parts),
-  );
+    if (hintedChatMessage && matchParts(hintedChatMessage.parts)) {
+      if (attemptCount > 1) {
+        logger.info(`${logPrefix} resolved after persistence wait`, {
+          chatId,
+          requestedChatMessageId: chatMessageId,
+          resolvedChatMessageId: hintedChatMessage.id,
+          waitedMs: Date.now() - startedAt,
+          lookupAttempts: attemptCount,
+        });
+      }
+      return hintedChatMessage;
+    }
 
-  if (matchingMessages.length === 1) {
-    if (chatMessageId && matchingMessages[0].id !== chatMessageId) {
-      logger.warn(`${logPrefix} resolved pending action by tool lookup`, {
+    const assistantMessages = await prisma.chatMessage.findMany({
+      where: {
+        role: "assistant",
+        chat: { id: chatId, emailAccountId },
+      },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        chatId: true,
+        updatedAt: true,
+        parts: true,
+      },
+    });
+
+    const matchingMessages = assistantMessages.filter((message) =>
+      matchParts(message.parts),
+    );
+
+    if (matchingMessages.length === 1) {
+      if (attemptCount > 1) {
+        logger.info(`${logPrefix} resolved after persistence wait`, {
+          chatId,
+          requestedChatMessageId: chatMessageId,
+          resolvedChatMessageId: matchingMessages[0].id,
+          waitedMs: Date.now() - startedAt,
+          lookupAttempts: attemptCount,
+        });
+      } else if (chatMessageId && matchingMessages[0].id !== chatMessageId) {
+        logger.warn(`${logPrefix} resolved pending action by tool lookup`, {
+          chatId,
+          requestedChatMessageId: chatMessageId,
+          resolvedChatMessageId: matchingMessages[0].id,
+        });
+      }
+      return matchingMessages[0];
+    }
+
+    if (matchingMessages.length > 1) {
+      logger.warn(`${logPrefix} found multiple pending action matches`, {
         chatId,
         requestedChatMessageId: chatMessageId,
-        resolvedChatMessageId: matchingMessages[0].id,
+        matchedChatMessageIds: matchingMessages.map((message) => message.id),
       });
+      return matchingMessages[0];
     }
-    return matchingMessages[0];
-  }
 
-  if (matchingMessages.length > 1) {
-    logger.warn(`${logPrefix} found multiple pending action matches`, {
+    const waitedMs = Date.now() - startedAt;
+    if (waitForPersistenceMs && waitedMs < waitForPersistenceMs) {
+      await wait(
+        Math.min(
+          PENDING_ACTION_POLL_INTERVAL_MS,
+          waitForPersistenceMs - waitedMs,
+        ),
+      );
+      continue;
+    }
+
+    logger.warn(`${logPrefix} pending action not found`, {
       chatId,
       requestedChatMessageId: chatMessageId,
-      matchedChatMessageIds: matchingMessages.map((message) => message.id),
+      hintedMessageFound: Boolean(hintedChatMessage),
+      assistantMessageCount: assistantMessages.length,
+      waitedMs,
+      lookupAttempts: attemptCount,
     });
-    return matchingMessages[0];
+
+    return null;
   }
-
-  logger.warn(`${logPrefix} pending action not found`, {
-    chatId,
-    requestedChatMessageId: chatMessageId,
-    hintedMessageFound: Boolean(hintedChatMessage),
-    assistantMessageCount: assistantMessages.length,
-  });
-
-  return null;
 }
 
 function findPendingAssistantEmailPart({
@@ -882,6 +926,7 @@ async function reservePendingAssistantEmailAction({
   toolCallId,
   actionType,
   emailAccountId,
+  waitForPersistence,
   logger,
 }: {
   chatId: string;
@@ -889,6 +934,7 @@ async function reservePendingAssistantEmailAction({
   toolCallId: string;
   actionType: AssistantPendingEmailActionType;
   emailAccountId: string;
+  waitForPersistence?: boolean;
   logger: Logger;
 }) {
   const matchEmailParts = (parts: unknown) =>
@@ -901,6 +947,9 @@ async function reservePendingAssistantEmailAction({
     logger,
     matchParts: matchEmailParts,
     logPrefix: "Assistant email confirmation",
+    waitForPersistenceMs: waitForPersistence
+      ? PENDING_ACTION_PERSIST_WAIT_MS
+      : undefined,
   });
 
   if (!chatMessage) {

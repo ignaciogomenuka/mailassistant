@@ -1410,10 +1410,6 @@ function LearnedPatternsActions({ ruleId }: { ruleId: string }) {
   );
 }
 
-function _ToolCard({ children }: { children: React.ReactNode }) {
-  return <Card className="space-y-3 p-4">{children}</Card>;
-}
-
 function RuleToolCardHeader({
   title,
   actions,

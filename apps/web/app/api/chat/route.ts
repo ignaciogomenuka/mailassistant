@@ -361,7 +361,6 @@ async function saveChatMessages(
     logger.info("Persisted chat messages", {
       chatId,
       insertedCount: result.count,
-      assistantMessageIds: assistantMessages.map((message) => message.id),
     });
 
     return result;

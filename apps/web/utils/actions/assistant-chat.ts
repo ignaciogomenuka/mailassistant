@@ -728,20 +728,19 @@ async function findChatMessageForPendingAction({
     return hintedChatMessage;
   }
 
-  const assistantMessages =
-    (await prisma.chatMessage.findMany({
-      where: {
-        role: "assistant",
-        chat: { id: chatId, emailAccountId },
-      },
-      orderBy: { updatedAt: "desc" },
-      select: {
-        id: true,
-        chatId: true,
-        updatedAt: true,
-        parts: true,
-      },
-    })) ?? [];
+  const assistantMessages = await prisma.chatMessage.findMany({
+    where: {
+      role: "assistant",
+      chat: { id: chatId, emailAccountId },
+    },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      chatId: true,
+      updatedAt: true,
+      parts: true,
+    },
+  });
 
   const matchingMessages = assistantMessages.filter((message) =>
     matchParts(message.parts),

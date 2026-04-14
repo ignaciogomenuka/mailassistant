@@ -673,43 +673,32 @@ function restorePersistedActionSequence({
   actions: CreateRuleBody["actions"];
   originalActions: CreateRuleBody["actions"];
 }) {
-  const originalActionIndexes = new Map(
+  const originalIndexById = new Map(
     originalActions.flatMap((action, index) =>
       action.id ? [[action.id, index] as const] : [],
     ),
   );
 
-  if (originalActionIndexes.size === 0) return actions;
+  if (originalIndexById.size === 0) return actions;
 
-  const existingActionsWithIndexes: Array<{
-    action: CreateRuleBody["actions"][number];
-    originalIndex: number;
-  }> = [];
-  const newActions: CreateRuleBody["actions"] = [];
+  const existing: CreateRuleBody["actions"] = [];
+  const added: CreateRuleBody["actions"] = [];
 
   for (const action of actions) {
-    const originalIndex = action.id
-      ? originalActionIndexes.get(action.id)
-      : undefined;
-
-    if (originalIndex !== undefined) {
-      existingActionsWithIndexes.push({ action, originalIndex });
-      continue;
+    if (action.id && originalIndexById.has(action.id)) {
+      existing.push(action);
+    } else {
+      added.push(action);
     }
-
-    newActions.push(action);
   }
 
-  if (existingActionsWithIndexes.length === 0) return actions;
+  if (existing.length === 0) return actions;
 
-  existingActionsWithIndexes.sort(
-    (left, right) => left.originalIndex - right.originalIndex,
+  existing.sort(
+    (a, b) => originalIndexById.get(a.id!)! - originalIndexById.get(b.id!)!,
   );
 
-  return [
-    ...existingActionsWithIndexes.map(({ action }) => action),
-    ...newActions,
-  ];
+  return [...existing, ...added];
 }
 
 type ActionTypeOption = {

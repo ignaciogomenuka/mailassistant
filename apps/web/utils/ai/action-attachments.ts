@@ -4,10 +4,17 @@ import {
   type SelectedAttachment,
   attachmentSourceInputSchema,
 } from "@/utils/attachments/source-schema";
-import { resolveDraftAttachments } from "@/utils/attachments/draft-attachments";
+import {
+  resolveDraftAttachments,
+  selectDraftAttachmentsForRule,
+} from "@/utils/attachments/draft-attachments";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import type { Logger } from "@/utils/logger";
 import { getReplyWithConfidence } from "@/utils/redis/reply";
+import { getEmailAccountWithAi } from "@/utils/user/get";
+import { stringifyEmail } from "@/utils/stringify-email";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
+import type { ParsedMessage } from "@/utils/types";
 
 export async function resolveActionAttachments({
   email,
@@ -79,22 +86,47 @@ async function getDraftSelectedAttachments({
   logger: Logger;
 }): Promise<SelectedAttachment[]> {
   if (!executedRule.ruleId) return [];
+  const ruleId = executedRule.ruleId;
 
   const cachedDraft = await getReplyWithConfidence({
     emailAccountId,
     messageId: email.id,
-    ruleId: executedRule.ruleId,
+    ruleId,
   });
 
   if (cachedDraft) {
     return cachedDraft.attachments ?? [];
   }
 
-  logger.warn("Draft attachment cache missing, skipping attachments", {
+  logger.info("Draft attachment cache missing, re-running selection", {
     messageId: email.id,
-    ruleId: executedRule.ruleId,
+    ruleId,
   });
-  return [];
+
+  const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+  if (!emailAccount) return [];
+
+  const emailContent = stringifyEmail(
+    getEmailForLLM(email as ParsedMessage),
+    10_000,
+  );
+
+  try {
+    const { selectedAttachments } = await selectDraftAttachmentsForRule({
+      emailAccount,
+      ruleId,
+      emailContent,
+      logger,
+    });
+    return selectedAttachments;
+  } catch (error) {
+    logger.error("Failed to select draft attachments on cache miss", {
+      messageId: email.id,
+      ruleId,
+      error,
+    });
+    return [];
+  }
 }
 
 function parseStaticAttachments(raw: unknown): SelectedAttachment[] {

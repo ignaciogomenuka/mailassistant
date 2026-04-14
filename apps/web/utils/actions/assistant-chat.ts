@@ -1763,7 +1763,7 @@ function warnAndThrowAssistantEmailConfirmationError({
   logger: Logger;
   logMessage: string;
   safeMessage: string;
-  chatMessageId: string;
+  chatMessageId?: string;
   toolCallId: string;
   actionType: AssistantPendingEmailActionType;
 }): never {

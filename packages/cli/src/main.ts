@@ -1,8 +1,15 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
-import { basename, resolve } from "node:path";
+import { basename, relative, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { program } from "commander";
 import * as p from "@clack/prompts";
@@ -55,6 +62,22 @@ const STANDALONE_COMPOSE_FILE = resolve(
 function ensureConfigDir(configDir: string) {
   if (!existsSync(configDir)) {
     mkdirSync(configDir, { recursive: true });
+  }
+}
+
+function ensureRepoComposeEnvLink(envFile: string) {
+  if (!REPO_ROOT) return;
+  if (basename(envFile) !== ".env") return;
+
+  const rootEnvFile = resolve(REPO_ROOT, ".env");
+  if (existsSync(rootEnvFile)) return;
+
+  const linkTarget = relative(REPO_ROOT, envFile);
+
+  try {
+    symlinkSync(linkTarget, rootEnvFile);
+  } catch {
+    copyFileSync(envFile, rootEnvFile);
   }
 }
 
@@ -666,6 +689,7 @@ async function runSetupQuick(options: { name?: string }) {
     template,
   });
   writeFileSync(envFile, envContent);
+  ensureRepoComposeEnvLink(envFile);
 
   spinner.stop("Configuration ready");
 
@@ -1200,6 +1224,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     template,
   });
   writeFileSync(envFile, envContent);
+  ensureRepoComposeEnvLink(envFile);
 
   spinner.stop(".env file created");
 
@@ -1236,8 +1261,10 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
 
   // For standalone installs, include -f flag to point to the compose file
   const composeCmd = REPO_ROOT
-    ? "docker compose"
-    : `docker compose -f ${composeFile}`;
+    ? envFileName === ".env"
+      ? "docker compose"
+      : `docker compose --env-file apps/web/${envFileName}`
+    : `docker compose --env-file ${envFile} -f ${composeFile}`;
 
   if (runWebInDocker) {
     // Web app runs in Docker with database & Redis

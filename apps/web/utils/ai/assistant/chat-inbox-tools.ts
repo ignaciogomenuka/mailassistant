@@ -487,7 +487,7 @@ function manageInboxInputSchema(provider: string) {
     action: z
       .enum(manageInboxActions)
       .describe(
-        "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. label_threads: apply a label (requires labelName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
+        "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. label_threads: apply a label (requires labelName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide after the user confirms that broad scope (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
       ),
     threadIds: threadIdsSchema
       .nullish()
@@ -535,7 +535,7 @@ export const manageInboxTool = ({
 
   return tool({
     description:
-      "Run inbox actions on threads or senders. Thread actions accept up to 100 threadIds per call, so bulk requests require repeated manageInbox calls over paginated searchInbox results. For sender-wide cleanup, prefer bulk_archive_senders or unsubscribe_senders with fromEmails.",
+      "Run inbox actions on threads or senders. For emails already shown or found in this turn, prefer thread actions with threadIds. Thread actions accept up to 100 threadIds per call, so all-matching bulk requests require repeated manageInbox calls over paginated searchInbox results until hasMore=false. Only use sender-wide cleanup with fromEmails when the user clearly wants all mail from that sender, and get confirmation before doing broad sender-wide cleanup.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });

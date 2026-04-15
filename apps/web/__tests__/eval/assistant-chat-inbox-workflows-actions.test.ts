@@ -33,89 +33,74 @@ describe.runIf(shouldRunEval)(
     describeEvalMatrix(
       "assistant-chat inbox workflows actions",
       (model, emailAccount) => {
-        test.each(inboxWorkflowProviders)(
-          "paginates bulk archive requests until all matching threads are covered [$label]",
-          async ({ provider, label }) => {
-            mockSearchMessages
-              .mockResolvedValueOnce({
-                messages: buildBulkArchiveMessages(50, 0),
-                nextPageToken: "PAGE_TOKEN_2",
-              })
-              .mockResolvedValueOnce({
-                messages: buildBulkArchiveMessages(50, 50),
-                nextPageToken: "PAGE_TOKEN_3",
-              })
-              .mockResolvedValueOnce({
-                messages: buildBulkArchiveMessages(20, 100),
-                nextPageToken: undefined,
-              });
-
-            const { toolCalls, actual } = await runAssistantChat({
-              emailAccount: cloneEmailAccountForProvider(
-                emailAccount,
-                provider,
-              ),
-              messages: [
-                {
-                  role: "user",
-                  content:
-                    "Archive all unread emails older than 3 years in my inbox.",
-                },
-              ],
+        test.each(
+          inboxWorkflowProviders,
+        )("paginates bulk archive requests until all matching threads are covered [$label]", async ({
+          provider,
+          label,
+        }) => {
+          mockSearchMessages
+            .mockResolvedValueOnce({
+              messages: buildBulkArchiveMessages(50, 0),
+              nextPageToken: "PAGE_TOKEN_2",
+            })
+            .mockResolvedValueOnce({
+              messages: buildBulkArchiveMessages(50, 50),
+              nextPageToken: "PAGE_TOKEN_3",
+            })
+            .mockResolvedValueOnce({
+              messages: buildBulkArchiveMessages(20, 100),
+              nextPageToken: undefined,
             });
 
-            const searchCalls = getSearchInboxCalls(toolCalls);
-            const firstSearchCall = searchCalls[0];
-            const searchJudge = firstSearchCall
-              ? await judgeSearchInboxQuery({
-                  prompt:
-                    "Archive all unread emails older than 3 years in my inbox.",
-                  query: firstSearchCall.query,
-                  expected:
-                    "A search query focused on unread inbox emails older than 3 years.",
-                })
-              : null;
-            const archiveCalls = getManageInboxArchiveCalls(toolCalls);
-            const archivedThreadIds = new Set(
-              archiveCalls.flatMap((call) => call.threadIds),
+          const { toolCalls, actual } = await runAssistantChat({
+            emailAccount: cloneEmailAccountForProvider(emailAccount, provider),
+            messages: [
+              {
+                role: "user",
+                content:
+                  "Archive all unread emails older than 3 years in my inbox.",
+              },
+            ],
+          });
+
+          const searchCalls = getSearchInboxCalls(toolCalls);
+          const firstSearchCall = searchCalls[0];
+          const archiveCalls = getManageInboxArchiveCalls(toolCalls);
+          const archivedThreadIds = new Set(
+            archiveCalls.flatMap((call) => call.threadIds),
+          );
+
+          const pass =
+            !!firstSearchCall &&
+            isBulkArchiveSearchQuery(firstSearchCall.query, provider) &&
+            hasSearchBeforeFirstWrite(toolCalls) &&
+            searchCalls.length >= 3 &&
+            !searchCalls[0]?.pageToken &&
+            searchCalls.some((call) => call.pageToken === "PAGE_TOKEN_2") &&
+            searchCalls.some((call) => call.pageToken === "PAGE_TOKEN_3") &&
+            archiveCalls.length >= 2 &&
+            archiveCalls.every((call) => call.threadIds.length <= 100) &&
+            archivedThreadIds.size === 120 &&
+            archivedThreadIds.has("thread-bulk-1") &&
+            archivedThreadIds.has("thread-bulk-120") &&
+            !toolCalls.some(
+              (toolCall) =>
+                toolCall.toolName === "manageInbox" &&
+                isBulkArchiveSendersInput(toolCall.input),
             );
 
-            const pass =
-              !!firstSearchCall &&
-              !!searchJudge?.pass &&
-              hasSearchBeforeFirstWrite(toolCalls) &&
-              searchCalls.length >= 3 &&
-              !searchCalls[0]?.pageToken &&
-              searchCalls.some((call) => call.pageToken === "PAGE_TOKEN_2") &&
-              searchCalls.some((call) => call.pageToken === "PAGE_TOKEN_3") &&
-              archiveCalls.length >= 2 &&
-              archiveCalls.every((call) => call.threadIds.length <= 100) &&
-              archivedThreadIds.size === 120 &&
-              archivedThreadIds.has("thread-bulk-1") &&
-              archivedThreadIds.has("thread-bulk-120") &&
-              !toolCalls.some(
-                (toolCall) =>
-                  toolCall.toolName === "manageInbox" &&
-                  isBulkArchiveSendersInput(toolCall.input),
-              );
+          evalReporter.record({
+            testName: `bulk archive paginates across all matches (${label})`,
+            model: model.label,
+            pass,
+            actual: firstSearchCall
+              ? `${actual} | query=${firstSearchCall.query}`
+              : actual,
+          });
 
-            evalReporter.record({
-              testName: `bulk archive paginates across all matches (${label})`,
-              model: model.label,
-              pass,
-              actual:
-                firstSearchCall && searchJudge
-                  ? `${actual} | ${formatSemanticJudgeActual(
-                      firstSearchCall.query,
-                      searchJudge,
-                    )}`
-                  : actual,
-            });
-
-            expect(pass).toBe(true);
-          },
-          TIMEOUT,
-        );
+          expect(pass).toBe(true);
+        }, 180_000);
 
         test.each(inboxWorkflowProviders)(
           "does not bulk archive sender cleanup before the user confirms [$label]",
@@ -442,4 +427,24 @@ function buildBulkArchiveMessages(count: number, startIndex: number) {
       labelIds: ["UNREAD", "INBOX"],
     });
   });
+}
+
+function isBulkArchiveSearchQuery(
+  query: string,
+  provider: "google" | "microsoft",
+) {
+  const normalizedQuery = query.toLowerCase();
+
+  if (provider === "microsoft") {
+    return (
+      normalizedQuery.includes("unread") &&
+      /received\s*(<=|<|=|>=|>)\s*2023-04-1[45]/.test(normalizedQuery)
+    );
+  }
+
+  return (
+    normalizedQuery.includes("is:unread") &&
+    (normalizedQuery.includes("older_than:3y") ||
+      /before:2023\/04\/1[45]/.test(normalizedQuery))
+  );
 }

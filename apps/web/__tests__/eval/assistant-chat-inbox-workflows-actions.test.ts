@@ -438,13 +438,15 @@ function isBulkArchiveSearchQuery(
   if (provider === "microsoft") {
     return (
       normalizedQuery.includes("unread") &&
-      /received\s*(<=|<|=|>=|>)\s*2023-04-1[45]/.test(normalizedQuery)
+      /received\s*(?:<=|<)\s*\d{4}-\d{2}-\d{2}(?:t[\d:.+-]+z?)?/.test(
+        normalizedQuery,
+      )
     );
   }
 
   return (
     normalizedQuery.includes("is:unread") &&
-    (normalizedQuery.includes("older_than:3y") ||
-      /before:2023\/04\/1[45]/.test(normalizedQuery))
+    (/older_than:\d+[dmy]/.test(normalizedQuery) ||
+      /before:\d{4}\/\d{2}\/\d{2}/.test(normalizedQuery))
   );
 }

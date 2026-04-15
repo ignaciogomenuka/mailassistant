@@ -14,6 +14,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 const mockCreateEmailProvider = vi.fn();
+const mockGetFormattedSenderAddress = vi.fn();
 const mockSendAutomationMessage = vi.fn();
 const mockSlackPostMessage = vi.fn();
 const mockSlackJoin = vi.fn();
@@ -27,6 +28,11 @@ vi.mock("@/utils/email/provider", () => ({
 vi.mock("@/utils/automation-jobs/messaging", () => ({
   sendAutomationMessage: (...args: unknown[]) =>
     mockSendAutomationMessage(...args),
+}));
+
+vi.mock("@/utils/email/get-formatted-sender-address", () => ({
+  getFormattedSenderAddress: (...args: unknown[]) =>
+    mockGetFormattedSenderAddress(...args),
 }));
 
 vi.mock("@/utils/messaging/providers/slack/client", () => ({
@@ -59,6 +65,7 @@ describe("handleRuleNotificationAction", () => {
       channelId: "teams-thread-1",
       messageId: "teams-message-1",
     });
+    mockGetFormattedSenderAddress.mockResolvedValue(null);
     mockSlackPostMessage.mockResolvedValue({ ts: "slack-ts-1" });
     mockSlackJoin.mockResolvedValue({});
     mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
@@ -426,10 +433,9 @@ describe("handleRuleNotificationAction", () => {
     };
 
     mockCreateEmailProvider.mockResolvedValue(provider);
-    prisma.emailAccount.findUnique.mockResolvedValue({
-      name: "Elie Steinbock",
-      email: "elie@getinboxzero.com",
-    } as never);
+    mockGetFormattedSenderAddress.mockResolvedValue(
+      "Elie Steinbock <elie@getinboxzero.com>",
+    );
     prisma.executedAction.findUnique.mockResolvedValue(
       getNotificationContext({
         id: "action-1",
@@ -494,10 +500,9 @@ describe("handleRuleNotificationAction", () => {
     };
 
     mockCreateEmailProvider.mockResolvedValue(provider);
-    prisma.emailAccount.findUnique.mockResolvedValue({
-      name: "Elie Steinbock",
-      email: "elie@getinboxzero.com",
-    } as never);
+    mockGetFormattedSenderAddress.mockResolvedValue(
+      "Elie Steinbock <elie@getinboxzero.com>",
+    );
     prisma.executedAction.findUnique.mockResolvedValue(
       getNotificationContext({
         id: "action-1",

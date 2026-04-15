@@ -1,7 +1,13 @@
 /** @vitest-environment jsdom */
 
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
@@ -12,6 +18,9 @@ const mockUseMessagingChannels = vi.fn();
 const mockUseFolders = vi.fn();
 const mockUseRouter = vi.fn();
 const mockUsePostHog = vi.fn();
+const { mockUpdateRuleAction } = vi.hoisted(() => ({
+  mockUpdateRuleAction: vi.fn(),
+}));
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -72,7 +81,7 @@ vi.mock("@/utils/prisma");
 vi.mock("@/utils/actions/rule", () => ({
   createRuleAction: vi.fn(),
   deleteRuleAction: vi.fn(),
-  updateRuleAction: vi.fn(),
+  updateRuleAction: mockUpdateRuleAction,
 }));
 
 vi.mock("@/utils/attachments/rule", () => ({
@@ -114,6 +123,13 @@ describe("RuleForm", () => {
     });
     mockUsePostHog.mockReturnValue({
       capture: vi.fn(),
+    });
+    mockUpdateRuleAction.mockResolvedValue({
+      data: {
+        rule: {
+          id: "cmjzoasfv000004ld2qar07t3",
+        },
+      },
     });
   });
 
@@ -295,5 +311,64 @@ describe("RuleForm", () => {
     expect(screen.getByText("Email")).toBeTruthy();
     expect(screen.getByText("Slack DM")).toBeTruthy();
     expect(screen.getByText("Telegram DM")).toBeTruthy();
+  });
+
+  it("preserves the original action order when saving an unchanged rule", async () => {
+    const view = render(
+      <RuleForm
+        alwaysEditMode
+        rule={{
+          id: "cmjzoasfv000004ld2qar07t3",
+          name: "Sorted for display",
+          instructions: null,
+          groupId: null,
+          runOnThreads: false,
+          digest: false,
+          conditionalOperator: LogicalOperator.AND,
+          conditions: [
+            {
+              type: ConditionType.STATIC,
+              from: "sender@example.com",
+              to: null,
+              subject: null,
+              body: null,
+              instructions: null,
+            },
+          ],
+          actions: [
+            {
+              id: "action-reply",
+              type: ActionType.REPLY,
+              content: { value: "Thanks" },
+            },
+            {
+              id: "action-label",
+              type: ActionType.LABEL,
+              labelId: { value: "label-1", name: "Follow up" },
+            },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(
+      within(view.container).getByRole("button", { name: "Save" }),
+    );
+
+    await waitFor(() => expect(mockUpdateRuleAction).toHaveBeenCalledTimes(1));
+
+    expect(mockUpdateRuleAction.mock.calls.at(-1)?.[1]).toMatchObject({
+      id: "cmjzoasfv000004ld2qar07t3",
+      actions: [
+        expect.objectContaining({
+          id: "action-reply",
+          type: ActionType.REPLY,
+        }),
+        expect.objectContaining({
+          id: "action-label",
+          type: ActionType.LABEL,
+        }),
+      ],
+    });
   });
 });

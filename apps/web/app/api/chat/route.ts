@@ -339,10 +339,31 @@ async function saveChatMessages(
   logger: Logger,
 ) {
   try {
-    return prisma.chatMessage.createMany({
-      data: mapUiMessagesToChatMessageRows(messages, chatId),
+    const rows = mapUiMessagesToChatMessageRows(messages, chatId);
+    const assistantMessages = messages.filter(
+      (message) => message.role === "assistant",
+    );
+
+    logger.info("Persisting chat messages", {
+      chatId,
+      messageCount: messages.length,
+      assistantMessageIds: assistantMessages.map((message) => message.id),
+      assistantToolCallIds: assistantMessages.flatMap((message) =>
+        getToolCallIdsFromUiParts(message.parts),
+      ),
+    });
+
+    const result = await prisma.chatMessage.createMany({
+      data: rows,
       skipDuplicates: true,
     });
+
+    logger.info("Persisted chat messages", {
+      chatId,
+      insertedCount: result.count,
+    });
+
+    return result;
   } catch (error) {
     logger.error("Failed to save chat messages", { error, chatId });
     captureException(error, { extra: { chatId } });
@@ -379,4 +400,11 @@ function hasRenderableAssistantResponse(
     if (part.type !== "text") return true;
     return part.text.trim().length > 0;
   });
+}
+
+function getToolCallIdsFromUiParts(parts: UIMessage["parts"] | undefined) {
+  return (
+    parts?.flatMap((part) => ("toolCallId" in part ? [part.toolCallId] : [])) ||
+    []
+  );
 }

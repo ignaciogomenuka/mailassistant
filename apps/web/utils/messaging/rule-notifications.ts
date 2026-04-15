@@ -692,29 +692,24 @@ async function handleDraftSend({
         return;
       }
 
-      await provider.sendEmailWithHtml({
-        replyToEmail: {
-          threadId: sourceMessage.threadId || context.executedRule.threadId,
-          headerMessageId: sourceMessage.headers["message-id"] || "",
-          references: sourceMessage.headers.references,
-          messageId: sourceMessage.id,
-        },
-        to:
-          context.to ||
-          sourceMessage.headers["reply-to"] ||
-          sourceMessage.headers.from,
-        cc: context.cc ?? undefined,
-        bcc: context.bcc ?? undefined,
-        subject:
-          context.subject || formatReplySubject(sourceMessage.headers.subject),
-        messageHtml: convertNewlinesToBr(escapeHtml(content)),
-        from:
-          (await getFormattedSenderAddress({
-            emailAccountId: context.executedRule.emailAccount.id,
-            fallbackEmail: context.executedRule.emailAccount.email,
-          })) || undefined,
-        attachments: serializeMailAttachments(attachments),
+      const formattedFrom = await getFormattedSenderAddress({
+        emailAccountId: context.executedRule.emailAccount.id,
+        fallbackEmail: context.executedRule.emailAccount.email,
       });
+
+      await provider.sendEmailWithHtml(
+        buildNotificationReplySendBody({
+          sourceMessage,
+          fallbackThreadId: context.executedRule.threadId,
+          to: context.to,
+          cc: context.cc,
+          bcc: context.bcc,
+          subject: context.subject,
+          content,
+          formattedFrom,
+          attachments: serializeMailAttachments(attachments),
+        }),
+      );
     }
 
     await prisma.executedAction.update({
@@ -754,6 +749,48 @@ async function handleDraftSend({
       text: "I couldn't send that draft. Please try again.",
     });
   }
+}
+
+export function buildNotificationReplySendBody({
+  sourceMessage,
+  fallbackThreadId,
+  to,
+  cc,
+  bcc,
+  subject,
+  content,
+  formattedFrom,
+  attachments,
+}: {
+  sourceMessage: Pick<ParsedMessage, "id" | "threadId" | "headers">;
+  fallbackThreadId: string;
+  to?: string | null;
+  cc?: string | null;
+  bcc?: string | null;
+  subject?: string | null;
+  content: string;
+  formattedFrom?: string | null;
+  attachments: Array<{
+    filename: string;
+    content: string;
+    contentType: string;
+  }>;
+}) {
+  return {
+    replyToEmail: {
+      threadId: sourceMessage.threadId || fallbackThreadId,
+      headerMessageId: sourceMessage.headers["message-id"] || "",
+      references: sourceMessage.headers.references,
+      messageId: sourceMessage.id,
+    },
+    to: to || sourceMessage.headers["reply-to"] || sourceMessage.headers.from,
+    cc: cc ?? undefined,
+    bcc: bcc ?? undefined,
+    subject: subject || formatReplySubject(sourceMessage.headers.subject),
+    messageHtml: convertNewlinesToBr(escapeHtml(content)),
+    ...(formattedFrom ? { from: formattedFrom } : {}),
+    attachments,
+  };
 }
 
 async function handleDraftEdit({

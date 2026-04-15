@@ -14,7 +14,6 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 const mockCreateEmailProvider = vi.fn();
-const mockGetFormattedSenderAddress = vi.fn();
 const mockSendAutomationMessage = vi.fn();
 const mockSlackPostMessage = vi.fn();
 const mockSlackJoin = vi.fn();
@@ -28,11 +27,6 @@ vi.mock("@/utils/email/provider", () => ({
 vi.mock("@/utils/automation-jobs/messaging", () => ({
   sendAutomationMessage: (...args: unknown[]) =>
     mockSendAutomationMessage(...args),
-}));
-
-vi.mock("@/utils/email/get-formatted-sender-address", () => ({
-  getFormattedSenderAddress: (...args: unknown[]) =>
-    mockGetFormattedSenderAddress(...args),
 }));
 
 vi.mock("@/utils/messaging/providers/slack/client", () => ({
@@ -65,7 +59,6 @@ describe("handleRuleNotificationAction", () => {
       channelId: "teams-thread-1",
       messageId: "teams-message-1",
     });
-    mockGetFormattedSenderAddress.mockResolvedValue(null);
     mockSlackPostMessage.mockResolvedValue({ ts: "slack-ts-1" });
     mockSlackJoin.mockResolvedValue({});
     mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
@@ -405,20 +398,18 @@ describe("handleRuleNotificationAction", () => {
     expect(provider.sendDraft).toHaveBeenCalledWith("draft-1");
     expect(editMessage).toHaveBeenCalledTimes(1);
   });
+});
 
-  it("uses the account display name when sending a Slack draft reply", async () => {
-    const provider = {
-      sendEmailWithHtml: vi.fn().mockResolvedValue(undefined),
-      getMessage: vi.fn().mockResolvedValue({
+describe("buildNotificationReplySendBody", () => {
+  it("includes the formatted sender when provided", async () => {
+    const { buildNotificationReplySendBody } = await import(
+      "./rule-notifications"
+    );
+
+    const body = buildNotificationReplySendBody({
+      sourceMessage: {
         id: "message-1",
         threadId: "thread-1",
-        textPlain: "Original message body",
-        textHtml: "<p>Original message body</p>",
-        subject: "Test subject",
-        date: new Date().toISOString(),
-        snippet: "Original message body",
-        historyId: "2",
-        internalDate: "2",
         headers: {
           from: "sender@example.com",
           to: "user@example.com",
@@ -426,66 +417,29 @@ describe("handleRuleNotificationAction", () => {
           date: "Mon, 1 Jan 2024 11:00:00 +0000",
           "message-id": "<message-1@example.com>",
         },
-        attachments: [],
-        labelIds: [],
-        inline: [],
-      } satisfies ParsedMessage),
-    };
-
-    mockCreateEmailProvider.mockResolvedValue(provider);
-    mockGetFormattedSenderAddress.mockResolvedValue(
-      "Elie Steinbock <elie@getinboxzero.com>",
-    );
-    prisma.executedAction.findUnique.mockResolvedValue(
-      getNotificationContext({
-        id: "action-1",
-        type: ActionType.DRAFT_MESSAGING_CHANNEL,
-        content: "Thanks for checking in.",
-      }) as never,
-    );
-    prisma.executedAction.findFirst.mockResolvedValue(null as never);
-    prisma.executedAction.update.mockResolvedValue({} as never);
-
-    const event = {
-      actionId: "rule_draft_send",
-      value: "action-1",
-      user: { userId: "user-1" },
-      raw: { team: { id: "team-1" } },
-      threadId: "slack-thread-1",
-      messageId: "slack-message-1",
-      adapter: { editMessage: vi.fn().mockResolvedValue(undefined) },
-      thread: { postEphemeral: vi.fn() },
-    } as any;
-
-    const { handleRuleNotificationAction } = await import(
-      "./rule-notifications"
-    );
-
-    await handleRuleNotificationAction({
-      event,
-      logger: createScopedLogger("test"),
+      } as ParsedMessage,
+      fallbackThreadId: "thread-fallback",
+      content: "Thanks for checking in.",
+      formattedFrom: "Elie Steinbock <elie@getinboxzero.com>",
+      attachments: [],
     });
 
-    expect(provider.sendEmailWithHtml).toHaveBeenCalledWith(
+    expect(body).toEqual(
       expect.objectContaining({
         from: "Elie Steinbock <elie@getinboxzero.com>",
       }),
     );
   });
 
-  it("falls back to the executed thread id when the fetched source message omits it", async () => {
-    const provider = {
-      sendEmailWithHtml: vi.fn().mockResolvedValue(undefined),
-      getMessage: vi.fn().mockResolvedValue({
+  it("falls back to the stored thread id when the source message omits it", async () => {
+    const { buildNotificationReplySendBody } = await import(
+      "./rule-notifications"
+    );
+
+    const body = buildNotificationReplySendBody({
+      sourceMessage: {
         id: "message-1",
         threadId: "",
-        textPlain: "Original message body",
-        textHtml: "<p>Original message body</p>",
-        subject: "Test subject",
-        date: new Date().toISOString(),
-        snippet: "Original message body",
-        historyId: "2",
-        internalDate: "2",
         headers: {
           from: "sender@example.com",
           to: "user@example.com",
@@ -493,47 +447,13 @@ describe("handleRuleNotificationAction", () => {
           date: "Mon, 1 Jan 2024 11:00:00 +0000",
           "message-id": "<message-1@example.com>",
         },
-        attachments: [],
-        labelIds: [],
-        inline: [],
-      } satisfies ParsedMessage),
-    };
-
-    mockCreateEmailProvider.mockResolvedValue(provider);
-    mockGetFormattedSenderAddress.mockResolvedValue(
-      "Elie Steinbock <elie@getinboxzero.com>",
-    );
-    prisma.executedAction.findUnique.mockResolvedValue(
-      getNotificationContext({
-        id: "action-1",
-        type: ActionType.DRAFT_MESSAGING_CHANNEL,
-        content: "Thanks for checking in.",
-      }) as never,
-    );
-    prisma.executedAction.findFirst.mockResolvedValue(null as never);
-    prisma.executedAction.update.mockResolvedValue({} as never);
-
-    const event = {
-      actionId: "rule_draft_send",
-      value: "action-1",
-      user: { userId: "user-1" },
-      raw: { team: { id: "team-1" } },
-      threadId: "slack-thread-1",
-      messageId: "slack-message-1",
-      adapter: { editMessage: vi.fn().mockResolvedValue(undefined) },
-      thread: { postEphemeral: vi.fn() },
-    } as any;
-
-    const { handleRuleNotificationAction } = await import(
-      "./rule-notifications"
-    );
-
-    await handleRuleNotificationAction({
-      event,
-      logger: createScopedLogger("test"),
+      } as ParsedMessage,
+      fallbackThreadId: "thread-1",
+      content: "Thanks for checking in.",
+      attachments: [],
     });
 
-    expect(provider.sendEmailWithHtml).toHaveBeenCalledWith(
+    expect(body).toEqual(
       expect.objectContaining({
         replyToEmail: expect.objectContaining({
           threadId: "thread-1",

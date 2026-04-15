@@ -987,7 +987,13 @@ async function getAuthorizedTelegramNotificationContext({
     return null;
   }
 
-  if (chatId && context.messagingChannel.teamId !== chatId) {
+  const expectedChatId =
+    getMessagingRoute(
+      context.messagingChannel.routes,
+      MessagingRoutePurpose.RULE_NOTIFICATIONS,
+    )?.targetId ?? context.messagingChannel.teamId;
+
+  if (chatId && expectedChatId !== chatId) {
     if (event) {
       await postNotificationFeedback({
         event,

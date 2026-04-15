@@ -199,6 +199,7 @@ export async function forwardEmail(
     cc?: string;
     bcc?: string;
     content?: string;
+    from?: string;
   },
   logger: Logger,
 ) {

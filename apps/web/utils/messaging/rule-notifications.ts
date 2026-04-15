@@ -41,6 +41,7 @@ import {
 } from "@/utils/string";
 import { analyzeCalendarEvent } from "@/utils/parse/calender-event";
 import { createEmailProvider } from "@/utils/email/provider";
+import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import { quotePlainTextContent } from "@/utils/email/quoted-plain-text";
 import { formatReplySubject } from "@/utils/email/subject";
@@ -693,7 +694,7 @@ async function handleDraftSend({
 
       await provider.sendEmailWithHtml({
         replyToEmail: {
-          threadId: sourceMessage.threadId,
+          threadId: sourceMessage.threadId || context.executedRule.threadId,
           headerMessageId: sourceMessage.headers["message-id"] || "",
           references: sourceMessage.headers.references,
           messageId: sourceMessage.id,
@@ -707,6 +708,11 @@ async function handleDraftSend({
         subject:
           context.subject || formatReplySubject(sourceMessage.headers.subject),
         messageHtml: convertNewlinesToBr(escapeHtml(content)),
+        from:
+          (await getFormattedSenderAddress({
+            emailAccountId: context.executedRule.emailAccount.id,
+            fallbackEmail: context.executedRule.emailAccount.email,
+          })) || undefined,
         attachments: serializeMailAttachments(attachments),
       });
     }

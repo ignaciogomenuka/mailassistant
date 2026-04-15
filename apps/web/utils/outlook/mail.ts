@@ -510,7 +510,10 @@ function buildGraphRecipients(
   });
 }
 
-function buildGraphFromField(formattedFrom?: string, fallbackAddress?: string) {
+function buildGraphFromField(
+  formattedFrom?: string,
+  fallbackAddress?: string | null,
+) {
   if (!formattedFrom) return undefined;
 
   const address = extractEmailAddress(formattedFrom) || fallbackAddress;

@@ -924,9 +924,11 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           messagingChannelId: persistedAction.messagingChannelId,
           content: persistedAction.content,
         },
-        userEmail: "user@example.com",
-        userId: "user-1",
-        emailAccountId,
+        emailAccount: {
+          email: "user@example.com",
+          id: emailAccountId,
+          userId: "user-1",
+        },
         executedRule: {
           id: "executed-rule-1",
           threadId,

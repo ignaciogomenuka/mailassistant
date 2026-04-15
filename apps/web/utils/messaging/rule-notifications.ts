@@ -548,14 +548,17 @@ async function handleDraftSend({
       );
       const attachments = await resolveActionAttachments({
         email: sourceMessage,
-        emailAccountId: context.executedRule.emailAccount.id,
+        emailAccount: {
+          email: context.executedRule.emailAccount.email,
+          id: context.executedRule.emailAccount.id,
+          userId: context.executedRule.emailAccount.userId,
+        },
         executedRule: {
           id: context.executedRule.id,
           threadId: context.executedRule.threadId,
           emailAccountId: context.executedRule.emailAccount.id,
           ruleId: context.executedRule.ruleId,
         } as ExecutedRule,
-        userId: context.executedRule.emailAccount.userId,
         logger,
         staticAttachments: context.staticAttachments,
         includeAiSelectedAttachments: true,

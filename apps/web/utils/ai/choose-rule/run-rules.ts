@@ -534,15 +534,32 @@ async function executeMatchedRule(
 }
 
 function getRuleHasAttachmentSources(rule: RuleWithActions) {
-  if ("_count" in rule && rule._count?.attachmentSources != null) {
+  if (hasAttachmentSourceCount(rule)) {
     return rule._count.attachmentSources > 0;
   }
 
-  if ("attachmentSources" in rule && Array.isArray(rule.attachmentSources)) {
+  if (hasAttachmentSourcesArray(rule)) {
     return rule.attachmentSources.length > 0;
   }
 
   return undefined;
+}
+
+function hasAttachmentSourceCount(
+  rule: RuleWithActions,
+): rule is RuleWithActions & { _count: { attachmentSources: number } } {
+  return (
+    typeof (rule as { _count?: { attachmentSources?: unknown } })._count
+      ?.attachmentSources === "number"
+  );
+}
+
+function hasAttachmentSourcesArray(
+  rule: RuleWithActions,
+): rule is RuleWithActions & { attachmentSources: unknown[] } {
+  return Array.isArray(
+    (rule as { attachmentSources?: unknown }).attachmentSources,
+  );
 }
 
 async function analyzeSenderPatternIfAiMatch({

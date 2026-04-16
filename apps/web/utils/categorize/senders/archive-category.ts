@@ -4,7 +4,7 @@ import { extractUniqueEmailAddresses } from "@/utils/email";
 import type { EmailProvider } from "@/utils/email/types";
 
 const UNCATEGORIZED_CATEGORY_NAME = "Uncategorized";
-const SAMPLE_SENDERS_LIMIT = 5;
+const MAX_SENDERS_IN_OUTPUT = 100;
 
 export async function archiveCategory({
   email,
@@ -56,7 +56,7 @@ export async function archiveCategory({
       action: "archive_category" as const,
       category: resolvedCategory.category,
       sendersCount: 0,
-      sampleSenders: [],
+      senders: [],
       message: `No senders are currently assigned to "${resolvedCategory.category.name}".`,
     };
   }
@@ -77,7 +77,7 @@ export async function archiveCategory({
     action: "archive_category" as const,
     category: resolvedCategory.category,
     sendersCount: normalizedSenderEmails.length,
-    sampleSenders: normalizedSenderEmails.slice(0, SAMPLE_SENDERS_LIMIT),
+    senders: normalizedSenderEmails.slice(0, MAX_SENDERS_IN_OUTPUT),
     message: `Archived mail from ${normalizedSenderEmails.length} senders in "${resolvedCategory.category.name}".`,
   };
 }

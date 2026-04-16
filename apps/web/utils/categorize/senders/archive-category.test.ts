@@ -46,7 +46,7 @@ describe("archiveCategory", () => {
         name: "Newsletters",
       },
       sendersCount: 2,
-      sampleSenders: ["first@example.com", "second@example.com"],
+      senders: ["first@example.com", "second@example.com"],
       message: 'Archived mail from 2 senders in "Newsletters".',
     });
   });
@@ -114,7 +114,7 @@ describe("archiveCategory", () => {
         name: "Uncategorized",
       },
       sendersCount: 0,
-      sampleSenders: [],
+      senders: [],
       message: 'No senders are currently assigned to "Uncategorized".',
     });
   });

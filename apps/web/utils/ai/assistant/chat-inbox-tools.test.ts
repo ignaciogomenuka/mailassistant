@@ -847,7 +847,7 @@ describe("chat inbox tools - sender categories", () => {
       action: "archive_category",
       category: { id: "cat-1", name: "Newsletters" },
       sendersCount: 6,
-      sampleSenders: ["one@example.com"],
+      senders: ["one@example.com"],
       message: 'Archived mail from 6 senders in "Newsletters".',
     });
 

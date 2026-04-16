@@ -362,14 +362,14 @@ export default function ToolsPage() {
         <section className="space-y-4">
           <SectionHeader>Sender Category Results</SectionHeader>
 
-          <MutedText>Archived with sample senders:</MutedText>
+          <MutedText>Archived a small category:</MutedText>
           <ManageSenderCategoryResult
             output={{
               success: true,
               action: "archive_category",
               category: { id: "cat-1", name: "Newsletters" },
               sendersCount: 4,
-              sampleSenders: [
+              senders: [
                 "updates@example.com",
                 "news@example.com",
                 "digest@example.com",
@@ -379,21 +379,31 @@ export default function ToolsPage() {
             }}
           />
 
-          <MutedText>Archived with overflow ("+ N more"):</MutedText>
+          <MutedText>
+            Archived a large category (scrollable list inside the card):
+          </MutedText>
           <ManageSenderCategoryResult
             output={{
               success: true,
               action: "archive_category",
               category: { id: "cat-2", name: "Promotions" },
-              sendersCount: 27,
-              sampleSenders: [
-                "deals@example.com",
-                "sale@example.com",
-                "offers@example.com",
-                "promo@example.com",
-                "marketing@example.com",
-              ],
-              message: 'Archived mail from 27 senders in "Promotions".',
+              sendersCount: 60,
+              senders: buildFakeSenderList(60, "promo"),
+              message: 'Archived mail from 60 senders in "Promotions".',
+            }}
+          />
+
+          <MutedText>
+            Archived with server-side cap hit ("+ N more not shown"):
+          </MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: "cat-4", name: "Marketing" },
+              sendersCount: 237,
+              senders: buildFakeSenderList(100, "marketing"),
+              message: 'Archived mail from 237 senders in "Marketing".',
             }}
           />
 
@@ -404,10 +414,15 @@ export default function ToolsPage() {
               action: "archive_category",
               category: { id: null, name: "Uncategorized" },
               sendersCount: 8,
-              sampleSenders: [
+              senders: [
                 "random@example.com",
                 "other@example.com",
                 "misc@example.com",
+                "ping@example.com",
+                "alerts@example.com",
+                "hello@example.com",
+                "team@example.com",
+                "support@example.com",
               ],
               message: 'Archived mail from 8 senders in "Uncategorized".',
             }}
@@ -420,7 +435,7 @@ export default function ToolsPage() {
               action: "archive_category",
               category: { id: "cat-3", name: "Receipts" },
               sendersCount: 0,
-              sampleSenders: [],
+              senders: [],
               message: 'No senders are currently assigned to "Receipts".',
             }}
           />
@@ -826,4 +841,11 @@ function buildRuleActionFields(
     subject: fields?.subject ?? null,
     webhookUrl: fields?.webhookUrl ?? null,
   };
+}
+
+function buildFakeSenderList(count: number, prefix: string): string[] {
+  return Array.from(
+    { length: count },
+    (_, i) => `${prefix}-${String(i + 1).padStart(3, "0")}@example.com`,
+  );
 }

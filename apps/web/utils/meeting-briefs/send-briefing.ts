@@ -75,6 +75,7 @@ export async function sendBriefing({
     select: {
       id: true,
       provider: true,
+      isConnected: true,
       accessToken: true,
       teamId: true,
       providerUserId: true,

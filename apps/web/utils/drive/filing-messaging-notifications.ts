@@ -41,6 +41,7 @@ export async function sendFilingMessagingNotifications({
     select: {
       id: true,
       provider: true,
+      isConnected: true,
       accessToken: true,
       teamId: true,
       providerUserId: true,

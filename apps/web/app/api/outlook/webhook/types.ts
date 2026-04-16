@@ -26,7 +26,7 @@ const changeNotificationSchema = notificationBaseSchema.extend({
 
 const lifecycleNotificationSchema = notificationBaseSchema.extend({
   changeType: z.string().optional(),
-  resourceData: resourceDataSchema.optional(),
+  resourceData: resourceDataSchema.nullish(),
   lifecycleEvent: z.enum([
     "subscriptionRemoved",
     "missed",

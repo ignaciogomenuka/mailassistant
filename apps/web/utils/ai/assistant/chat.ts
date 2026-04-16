@@ -680,7 +680,7 @@ export function buildResolvedSystemPrompt({
 - For low-priority repeated senders, you may suggest bulk archive by sender as an option, but default to archiving the specific threads shown.
 - For requests about a small explicit set like "the two emails", "these emails", or "the emails you found", search narrowly enough to identify that set before writing, then act only on those threadIds.
 - For topic-based or age-based cleanup, search first and then use thread-level actions on the matched results.
-- When the user asks for all matching emails, keep paginating until searchInbox returns hasMore=false. If you are close to the step limit and cannot finish every batch safely in this turn, say that the cleanup is only partially complete and do not claim full completion.
+- When the user asks for all matching emails, keep paginating until searchInbox returns hasMore=false. Do not claim full completion while hasMore=true or while any matching batch still has not been handled.
 - Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
 - For ongoing sender-level batch cleanup, once the user confirms the category, continue subsequent batches without re-asking.`,
     `Rules and automation:

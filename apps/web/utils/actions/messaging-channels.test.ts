@@ -7,8 +7,15 @@ import {
 import {
   createMessagingLinkCodeAction,
   toggleRuleChannelAction,
+  updateSlackRouteAction,
   updateMessagingFeatureRouteAction,
 } from "@/utils/actions/messaging-channels";
+import {
+  getChannelInfo,
+  listPrivateChannelsForUser,
+} from "@/utils/messaging/providers/slack/channels";
+import { createSlackClient } from "@/utils/messaging/providers/slack/client";
+import { sendChannelConfirmation } from "@/utils/messaging/providers/slack/send";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -16,6 +23,16 @@ vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({
     user: { id: "user-1", email: "user@example.com" },
   })),
+}));
+vi.mock("@/utils/messaging/providers/slack/channels", () => ({
+  getChannelInfo: vi.fn(),
+  listPrivateChannelsForUser: vi.fn(),
+}));
+vi.mock("@/utils/messaging/providers/slack/client", () => ({
+  createSlackClient: vi.fn(),
+}));
+vi.mock("@/utils/messaging/providers/slack/send", () => ({
+  sendChannelConfirmation: vi.fn(),
 }));
 
 const { mockEnv, generateMessagingLinkCodeMock } = vi.hoisted(() => ({
@@ -203,6 +220,55 @@ describe("updateMessagingFeatureRouteAction", () => {
       "Please select a target channel before enabling features",
     );
     expect(prisma.messagingChannel.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateSlackRouteAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      account: {
+        userId: "user-1",
+        provider: "google",
+      },
+    } as any);
+  });
+
+  it("rejects private Slack channels the user is not a member of", async () => {
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      provider: "SLACK",
+      isConnected: true,
+      accessToken: "xoxb-token",
+      providerUserId: "U123",
+      botUserId: "B123",
+    } as any);
+    vi.mocked(createSlackClient).mockReturnValue({} as never);
+    vi.mocked(getChannelInfo).mockResolvedValue({
+      id: "C123",
+      name: "private-alerts",
+      isPrivate: true,
+    });
+    vi.mocked(listPrivateChannelsForUser).mockResolvedValue([
+      {
+        id: "C999",
+        name: "other-private-channel",
+        isPrivate: true,
+      },
+    ]);
+
+    const result = await updateSlackRouteAction("email-account-1" as any, {
+      channelId: "channel-1",
+      purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+      targetId: "C123",
+    });
+
+    expect(result?.serverError).toBe(
+      "Only private channels you are a member of are allowed. Please select one of your private channels.",
+    );
+    expect(prisma.messagingRoute.upsert).not.toHaveBeenCalled();
+    expect(sendChannelConfirmation).not.toHaveBeenCalled();
   });
 });
 

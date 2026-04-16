@@ -21,7 +21,10 @@ import {
 } from "@/generated/prisma/enums";
 import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
 import { env } from "@/env";
-import { getChannelInfo } from "@/utils/messaging/providers/slack/channels";
+import {
+  getChannelInfo,
+  listPrivateChannelsForUser,
+} from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 import { sendChannelConfirmation } from "@/utils/messaging/providers/slack/send";
 import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
@@ -503,6 +506,25 @@ async function resolveSlackRouteTarget({
     throw new SafeError(
       "Only private channels are allowed. Please select a private channel.",
     );
+  }
+
+  if (providerUserId) {
+    const availablePrivateChannels = await listPrivateChannelsForUser(
+      client,
+      providerUserId,
+    );
+    const isAvailableToUser = availablePrivateChannels.some(
+      (channel) => channel.id === targetId,
+    );
+
+    if (!isAvailableToUser) {
+      logger.error("Slack channel target is unavailable to user", {
+        targetId,
+      });
+      throw new SafeError(
+        "Only private channels you are a member of are allowed. Please select one of your private channels.",
+      );
+    }
   }
 
   return {

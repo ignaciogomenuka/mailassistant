@@ -200,12 +200,14 @@ describe("updateMessagingFeatureRouteAction", () => {
     });
   });
 
-  it("still requires a provider user id for Teams features", async () => {
+  it("still requires a selected target route for Teams features", async () => {
     prisma.messagingChannel.findUnique.mockResolvedValue({
       id: "channel-1",
       emailAccountId: "email-account-1",
       provider: "TEAMS",
       isConnected: true,
+      accessToken: null,
+      providerUserId: "29:teams-user",
       routes: [],
     } as any);
 
@@ -222,6 +224,31 @@ describe("updateMessagingFeatureRouteAction", () => {
       "Please select a target channel before enabling features",
     );
     expect(prisma.messagingChannel.update).not.toHaveBeenCalled();
+  });
+
+  it("requires reconnecting Teams before enabling features", async () => {
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      id: "channel-1",
+      emailAccountId: "email-account-1",
+      provider: "TEAMS",
+      isConnected: true,
+      accessToken: null,
+      providerUserId: null,
+      routes: [],
+    } as any);
+
+    const result = await updateMessagingFeatureRouteAction(
+      "email-account-1" as any,
+      {
+        channelId: "channel-1",
+        purpose: MessagingRoutePurpose.MEETING_BRIEFS,
+        enabled: true,
+      },
+    );
+
+    expect(result?.serverError).toBe(
+      "Please reconnect Teams before configuring notifications.",
+    );
   });
 });
 
@@ -295,7 +322,7 @@ describe("updateSlackRouteAction", () => {
     });
 
     expect(result?.serverError).toBe(
-      "Please reconnect Slack before selecting a private channel.",
+      "Please reconnect Slack before configuring notifications.",
     );
     expect(listChannels).not.toHaveBeenCalled();
     expect(listPrivateChannelsForUser).not.toHaveBeenCalled();
@@ -368,6 +395,8 @@ describe("toggleRuleChannelAction", () => {
       emailAccountId: "email-account-1",
       provider: "SLACK",
       isConnected: true,
+      accessToken: "xoxb-token",
+      providerUserId: "U123",
       routes: [
         {
           purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
@@ -405,6 +434,8 @@ describe("toggleRuleChannelAction", () => {
       emailAccountId: "email-account-1",
       provider: "SLACK",
       isConnected: true,
+      accessToken: "xoxb-token",
+      providerUserId: "U123",
       routes: [
         {
           purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
@@ -431,5 +462,37 @@ describe("toggleRuleChannelAction", () => {
         messagingChannelId: "channel-1",
       },
     });
+  });
+
+  it("requires reconnecting Teams before enabling notifications", async () => {
+    prisma.rule.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-1",
+      actions: [],
+    } as any);
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-1",
+      provider: "TEAMS",
+      isConnected: true,
+      accessToken: null,
+      providerUserId: null,
+      routes: [
+        {
+          purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+          targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+          targetId: "29:teams-user",
+        },
+      ],
+    } as any);
+
+    const result = await toggleRuleChannelAction("email-account-1" as any, {
+      ruleId: "rule-1",
+      messagingChannelId: "channel-1",
+      enabled: true,
+    });
+
+    expect(result?.serverError).toBe(
+      "Please reconnect Teams before configuring notifications.",
+    );
+    expect(prisma.action.create).not.toHaveBeenCalled();
   });
 });

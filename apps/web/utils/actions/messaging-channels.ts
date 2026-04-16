@@ -22,6 +22,10 @@ import {
 import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
 import { env } from "@/env";
 import {
+  getMessagingChannelReconnectMessage,
+  isMessagingChannelOperational,
+} from "@/utils/messaging/channel-validity";
+import {
   getChannelInfo,
   listPrivateChannelsForUser,
 } from "@/utils/messaging/providers/slack/channels";
@@ -57,6 +61,7 @@ export const updateSlackRouteAction = actionClient
       const channel = await prisma.messagingChannel.findUnique({
         where,
         select: {
+          id: true,
           provider: true,
           isConnected: true,
           accessToken: true,
@@ -79,6 +84,12 @@ export const updateSlackRouteAction = actionClient
 
       if (!channel.accessToken) {
         throw new SafeError("Messaging channel has no access token");
+      }
+
+      if (!isMessagingChannelOperational(channel)) {
+        throw new SafeError(
+          getMessagingChannelReconnectMessage(channel.provider),
+        );
       }
 
       const target = await resolveSlackRouteTarget({
@@ -136,7 +147,10 @@ export const updateMessagingFeatureRouteAction = actionClient
         where,
         select: {
           id: true,
+          provider: true,
           isConnected: true,
+          accessToken: true,
+          providerUserId: true,
           routes: {
             select: {
               purpose: true,
@@ -153,6 +167,12 @@ export const updateMessagingFeatureRouteAction = actionClient
 
       if (!channel.isConnected) {
         throw new SafeError("Messaging channel is not connected");
+      }
+
+      if (!isMessagingChannelOperational(channel)) {
+        throw new SafeError(
+          getMessagingChannelReconnectMessage(channel.provider),
+        );
       }
 
       await syncMessagingFeatureRoute({
@@ -367,6 +387,8 @@ export const toggleRuleChannelAction = actionClient
           select: {
             isConnected: true,
             provider: true,
+            accessToken: true,
+            providerUserId: true,
             routes: {
               select: {
                 purpose: true,
@@ -398,6 +420,11 @@ export const toggleRuleChannelAction = actionClient
       if (enabled) {
         if (!channel.isConnected) {
           throw new SafeError("Messaging channel is not connected");
+        }
+        if (!isMessagingChannelOperational(channel)) {
+          throw new SafeError(
+            getMessagingChannelReconnectMessage(channel.provider),
+          );
         }
         if (
           !hasMessagingRoute(

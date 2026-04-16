@@ -14,6 +14,7 @@ import {
   getMessagingRoute,
   getMessagingRouteWhere,
 } from "@/utils/messaging/routes";
+import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
 
 export async function sendFilingMessagingNotifications({
   emailAccountId,
@@ -75,6 +76,13 @@ export async function sendFilingMessagingNotifications({
       MessagingRoutePurpose.DOCUMENT_FILINGS,
     );
     if (!route) continue;
+    if (!isMessagingChannelOperational(channel)) {
+      log.warn("Skipping filing notification for invalid messaging channel", {
+        messagingChannelId: channel.id,
+        provider: channel.provider,
+      });
+      continue;
+    }
 
     switch (channel.provider) {
       case MessagingProvider.SLACK: {

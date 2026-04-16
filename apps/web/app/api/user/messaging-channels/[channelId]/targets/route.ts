@@ -3,10 +3,8 @@ import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import type { Logger } from "@/utils/logger";
 import { MessagingProvider } from "@/generated/prisma/enums";
-import {
-  listChannels,
-  listPrivateChannelsForUser,
-} from "@/utils/messaging/providers/slack/channels";
+import { getMessagingChannelReconnectMessage } from "@/utils/messaging/channel-validity";
+import { listPrivateChannelsForUser } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 
 export type GetChannelTargetsResponse = Awaited<ReturnType<typeof getData>>;
@@ -54,10 +52,18 @@ async function getData({
   try {
     switch (channel.provider) {
       case MessagingProvider.SLACK: {
+        if (!channel.providerUserId) {
+          return {
+            targets: [],
+            error: getMessagingChannelReconnectMessage(MessagingProvider.SLACK),
+          };
+        }
+
         const client = createSlackClient(channel.accessToken);
-        const channels = channel.providerUserId
-          ? await listPrivateChannelsForUser(client, channel.providerUserId)
-          : (await listChannels(client)).filter((channel) => channel.isPrivate);
+        const channels = await listPrivateChannelsForUser(
+          client,
+          channel.providerUserId,
+        );
         return {
           targets: channels.map((c) => ({
             id: c.id,

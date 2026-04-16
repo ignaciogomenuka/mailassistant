@@ -253,10 +253,15 @@ describe("confirmAssistantEmailAction", () => {
   });
 
   it("sends a pending prepared reply and persists confirmed output", async () => {
-    (prisma.emailAccount.findUnique as any).mockResolvedValueOnce({
-      email: "owner@example.com",
-      account: { userId: "u1", provider: "google" },
-    });
+    (prisma.emailAccount.findUnique as any)
+      .mockResolvedValueOnce({
+        email: "owner@example.com",
+        account: { userId: "u1", provider: "google" },
+      })
+      .mockResolvedValueOnce({
+        name: "Owner",
+        email: "owner@example.com",
+      });
 
     prisma.chatMessage.findFirst.mockResolvedValue({
       id: "chat-message-1",
@@ -296,7 +301,9 @@ describe("confirmAssistantEmailAction", () => {
       } as any,
     );
 
-    expect(replyToEmail).toHaveBeenCalledWith(sourceMessage, "Thanks!");
+    expect(replyToEmail).toHaveBeenCalledWith(sourceMessage, "Thanks!", {
+      from: "Owner <owner@example.com>",
+    });
     expect(result?.data?.confirmationState).toBe("confirmed");
     expect(result?.data?.confirmationResult).toMatchObject({
       actionType: "reply_email",
@@ -308,10 +315,15 @@ describe("confirmAssistantEmailAction", () => {
   });
 
   it("sends a pending prepared forward and persists confirmed output", async () => {
-    (prisma.emailAccount.findUnique as any).mockResolvedValueOnce({
-      email: "owner@example.com",
-      account: { userId: "u1", provider: "google" },
-    });
+    (prisma.emailAccount.findUnique as any)
+      .mockResolvedValueOnce({
+        email: "owner@example.com",
+        account: { userId: "u1", provider: "google" },
+      })
+      .mockResolvedValueOnce({
+        name: "Owner",
+        email: "owner@example.com",
+      });
 
     prisma.chatMessage.findFirst.mockResolvedValue({
       id: "chat-message-1",
@@ -355,6 +367,7 @@ describe("confirmAssistantEmailAction", () => {
       cc: undefined,
       bcc: undefined,
       content: "FYI",
+      from: "Owner <owner@example.com>",
     });
     expect(result?.data?.confirmationState).toBe("confirmed");
     expect(result?.data?.confirmationResult).toMatchObject({

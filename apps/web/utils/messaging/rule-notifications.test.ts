@@ -400,6 +400,69 @@ describe("handleRuleNotificationAction", () => {
   });
 });
 
+describe("buildNotificationReplySendBody", () => {
+  it("includes the formatted sender when provided", async () => {
+    const { buildNotificationReplySendBody } = await import(
+      "./rule-notifications"
+    );
+
+    const body = buildNotificationReplySendBody({
+      sourceMessage: {
+        id: "message-1",
+        threadId: "thread-1",
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Test subject",
+          date: "Mon, 1 Jan 2024 11:00:00 +0000",
+          "message-id": "<message-1@example.com>",
+        },
+      } as ParsedMessage,
+      fallbackThreadId: "thread-fallback",
+      content: "Thanks for checking in.",
+      formattedFrom: "Elie Steinbock <elie@getinboxzero.com>",
+      attachments: [],
+    });
+
+    expect(body).toEqual(
+      expect.objectContaining({
+        from: "Elie Steinbock <elie@getinboxzero.com>",
+      }),
+    );
+  });
+
+  it("falls back to the stored thread id when the source message omits it", async () => {
+    const { buildNotificationReplySendBody } = await import(
+      "./rule-notifications"
+    );
+
+    const body = buildNotificationReplySendBody({
+      sourceMessage: {
+        id: "message-1",
+        threadId: "",
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Test subject",
+          date: "Mon, 1 Jan 2024 11:00:00 +0000",
+          "message-id": "<message-1@example.com>",
+        },
+      } as ParsedMessage,
+      fallbackThreadId: "thread-1",
+      content: "Thanks for checking in.",
+      attachments: [],
+    });
+
+    expect(body).toEqual(
+      expect.objectContaining({
+        replyToEmail: expect.objectContaining({
+          threadId: "thread-1",
+        }),
+      }),
+    );
+  });
+});
+
 describe("sendMessagingRuleNotification", () => {
   beforeEach(() => {
     vi.clearAllMocks();

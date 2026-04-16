@@ -490,6 +490,7 @@ async function executeAssistantEmailAction({
       return confirmPendingReplyEmailAction({
         output,
         emailProvider,
+        emailAccountId,
         confirmedAt,
         contentOverride,
       });
@@ -497,6 +498,7 @@ async function executeAssistantEmailAction({
       return confirmPendingForwardEmailAction({
         output,
         emailProvider,
+        emailAccountId,
         confirmedAt,
         contentOverride,
       });
@@ -553,21 +555,30 @@ async function confirmPendingSendEmailAction({
 async function confirmPendingReplyEmailAction({
   output,
   emailProvider,
+  emailAccountId,
   confirmedAt,
   contentOverride,
 }: {
   output: PendingReplyEmailToolOutput;
   emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
+  emailAccountId: string;
   confirmedAt: string;
   contentOverride?: string;
 }) {
-  const message = await emailProvider.getMessage(
+  const sourceMessage = await emailProvider.getMessage(
     output.pendingAction.messageId,
   );
+  const message = applyReferenceThreadIdFallback(
+    sourceMessage,
+    output.reference?.threadId,
+  );
+  const from = await getFormattedSenderAddress({ emailAccountId });
+  const replyOptions = from ? { from } : undefined;
   const sentAfter = new Date();
   await emailProvider.replyToEmail(
     message,
     contentOverride || output.pendingAction.content,
+    replyOptions,
   );
 
   const messageId = await resolveSentMessageId({
@@ -589,24 +600,33 @@ async function confirmPendingReplyEmailAction({
 async function confirmPendingForwardEmailAction({
   output,
   emailProvider,
+  emailAccountId,
   confirmedAt,
   contentOverride,
 }: {
   output: PendingForwardEmailToolOutput;
   emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
+  emailAccountId: string;
   confirmedAt: string;
   contentOverride?: string;
 }) {
-  const message = await emailProvider.getMessage(
+  const sourceMessage = await emailProvider.getMessage(
     output.pendingAction.messageId,
   );
-  const sentAfter = new Date();
-  await emailProvider.forwardEmail(message, {
+  const message = applyReferenceThreadIdFallback(
+    sourceMessage,
+    output.reference?.threadId,
+  );
+  const from = await getFormattedSenderAddress({ emailAccountId });
+  const forwardArgs = {
     to: output.pendingAction.to,
     cc: output.pendingAction.cc || undefined,
     bcc: output.pendingAction.bcc || undefined,
     content: contentOverride || output.pendingAction.content || undefined,
-  });
+    ...(from ? { from } : {}),
+  };
+  const sentAfter = new Date();
+  await emailProvider.forwardEmail(message, forwardArgs);
 
   const messageId = await resolveSentMessageId({
     emailProvider,
@@ -1804,6 +1824,18 @@ function parsePendingForwardEmailOutput(output: unknown) {
 function getOutputWithoutProcessingMetadata(output: Record<string, unknown>) {
   const { confirmationProcessingAt: _, ...rest } = output;
   return rest;
+}
+
+function applyReferenceThreadIdFallback<T extends { threadId?: string | null }>(
+  message: T,
+  fallbackThreadId?: string | null,
+) {
+  if (message.threadId || !fallbackThreadId) return message;
+
+  return {
+    ...message,
+    threadId: fallbackThreadId,
+  };
 }
 
 function getPendingActionContentPatch(

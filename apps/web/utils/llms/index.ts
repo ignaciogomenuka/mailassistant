@@ -102,6 +102,14 @@ type UsageMetadata = {
   toolCallCount?: number;
 };
 
+export type ToolCallAgentResolvedModel = {
+  excludedTools: string[];
+  modelName?: string;
+  provider: string;
+  providerOptions: LLMProviderOptions;
+  replacedTools: string[];
+};
+
 const commonOptions: {
   experimental_telemetry: { isEnabled: boolean };
   headers?: Record<string, string>;
@@ -592,6 +600,8 @@ export async function toolCallAgentStream({
   providerOptions: requestProviderOptions,
   onFinish,
   onStepFinish,
+  onModelResolved,
+  temperature,
 }: {
   userAi: UserAIFields;
   modelType?: ModelType;
@@ -608,6 +618,8 @@ export async function toolCallAgentStream({
   providerOptions?: LLMProviderOptions;
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
+  onModelResolved?: (resolvedModel: ToolCallAgentResolvedModel) => void;
+  temperature?: number;
 }) {
   const { modelOptions, modelCandidates } = await resolveModelCandidates({
     modelOptions: getModel(userAi, modelType),
@@ -670,6 +682,14 @@ export async function toolCallAgentStream({
       });
     }
 
+    onModelResolved?.({
+      provider: candidate.provider,
+      modelName: candidate.modelName,
+      providerOptions,
+      replacedTools,
+      excludedTools,
+    });
+
     const agent = new ToolLoopAgent({
       model,
       tools: candidateTools,
@@ -678,6 +698,7 @@ export async function toolCallAgentStream({
         | undefined,
       prepareStep,
       stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
+      temperature,
       ...commonOptions,
       providerOptions,
       onFinish: async (result) => {

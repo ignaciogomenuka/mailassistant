@@ -234,7 +234,7 @@ export const searchInboxTool = ({
 }) =>
   tool({
     description:
-      "Search inbox messages and return concise message metadata. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion.",
+      "Search inbox messages and return concise message metadata. Limit must be between 1 and 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion.",
     inputSchema: searchInboxInputSchema(provider),
     execute: async ({ query, limit, pageToken }) => {
       trackToolCall({ tool: "search_inbox", email, logger });
@@ -535,7 +535,7 @@ export const manageInboxTool = ({
 
   return tool({
     description:
-      "Run inbox actions on threads or senders. For emails already shown or found in this turn, prefer thread actions with threadIds. Thread actions accept up to 100 threadIds per call, so all-matching bulk requests require repeated manageInbox calls over paginated searchInbox results until hasMore=false. Only use sender-wide cleanup with fromEmails when the user clearly wants all mail from that sender, and get confirmation before doing broad sender-wide cleanup.",
+      "Run inbox actions on threads or senders. For emails already shown or found in this turn, prefer thread actions with threadIds. If the user says not everything from that sender, never use sender-wide cleanup. Thread actions accept up to 100 threadIds per call, so all-matching bulk requests require repeated manageInbox calls over paginated searchInbox results until hasMore=false. Only use sender-wide cleanup with fromEmails when the user clearly wants all mail from that sender, and get confirmation before doing broad sender-wide cleanup.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });

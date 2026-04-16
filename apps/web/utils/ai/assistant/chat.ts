@@ -48,9 +48,14 @@ import {
 
 export const maxDuration = 120;
 const ASSISTANT_CHAT_MAX_STEPS = 25;
+const ASSISTANT_CHAT_TEMPERATURE = 0;
+const ASSISTANT_CHAT_REASONING_MAX_TOKENS = 100;
 
 type AssistantChatOnStepFinish = NonNullable<
   Parameters<typeof toolCallAgentStream>[0]["onStepFinish"]
+>;
+type AssistantChatOnModelResolved = NonNullable<
+  Parameters<typeof toolCallAgentStream>[0]["onModelResolved"]
 >;
 
 export async function aiProcessAssistantChat({
@@ -68,6 +73,7 @@ export async function aiProcessAssistantChat({
   messagingPlatform,
   onRulesStateExposed,
   onStepFinish,
+  onModelResolved,
   logger,
 }: {
   messages: ModelMessage[];
@@ -84,6 +90,7 @@ export async function aiProcessAssistantChat({
   messagingPlatform?: MessagingPlatform;
   onRulesStateExposed?: (rulesRevision: number) => void;
   onStepFinish?: AssistantChatOnStepFinish;
+  onModelResolved?: AssistantChatOnModelResolved;
   logger: Logger;
 }) {
   if (chatLastSeenRulesRevision !== undefined && chatHasHistory === undefined) {
@@ -296,7 +303,9 @@ export async function aiProcessAssistantChat({
       });
       await onStepFinish?.(step);
     },
+    onModelResolved,
     maxSteps: ASSISTANT_CHAT_MAX_STEPS,
+    temperature: ASSISTANT_CHAT_TEMPERATURE,
     tools: allTools,
   });
 
@@ -464,12 +473,19 @@ function formatFixRuleExpectedOutcome(context: MessageContext) {
 }
 
 function getChatProviderOptionsForCaching({ chatId }: { chatId?: string }) {
-  if (!chatId) return undefined;
-
   return {
-    openai: {
-      promptCacheKey: `assistant-chat:${chatId}`,
+    openrouter: {
+      reasoning: {
+        max_tokens: ASSISTANT_CHAT_REASONING_MAX_TOKENS,
+      },
     },
+    ...(chatId
+      ? {
+          openai: {
+            promptCacheKey: `assistant-chat:${chatId}`,
+          },
+        }
+      : {}),
   } satisfies Record<string, Record<string, JSONValue>>;
 }
 
@@ -592,12 +608,14 @@ function getProviderSearchSyntaxPolicy(provider: string) {
   if (provider === "microsoft") {
     return `Provider search syntax:
 - Use KQL syntax for search: from:, to:, subject:, received>=YYYY-MM-DD, and keyword search.
+- If the user names a sender or brand but the actual email address is not known yet, search first, inspect the returned \`from\` values, and then refine with \`from:\` before writing when needed.
 - When the sender or domain is known, prefer \`from:\` queries over a bare keyword.
 - Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.`;
   }
 
   return `Provider search syntax:
 - Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, and older_than:.
+- If the user names a sender or brand but the actual email address is not known yet, search first, inspect the returned \`from\` values, and then refine with \`from:\` before writing when needed.
 - When the sender or domain is known, prefer \`from:\` queries over a bare keyword.`;
 }
 
@@ -678,11 +696,12 @@ export function buildResolvedSystemPrompt({
     `Inbox workflows:
 - For inbox updates, "what came in today?", or recent-attention requests, search first with a tight time range in the user's timezone, then summarize into must handle now, can wait, and can archive or mark read.
 - Prioritize "To Reply" items as must handle. If labels are missing, infer urgency from sender, subject, and snippet.
-- For retroactive cleanup requests, use the inbox stats in context plus a search sample (up to 50 results) to understand the scale, read or unread ratio, and clutter, then recommend one next action.
+- For retroactive cleanup requests, use the inbox stats in context plus a search sample (up to 20 results) to understand the scale, read or unread ratio, and clutter, then recommend one next action.
 - For low-priority repeated senders, you may suggest bulk archive by sender as an option, but default to archiving the specific threads shown.
-- For requests about a small explicit set like "the two emails", "these emails", or "the emails you found", search narrowly enough to identify that set before writing, then act only on those threadIds.
+- For requests about a small explicit set like "the two emails", "these emails", or "the emails you found", search narrowly enough to identify that set before writing. If the request names a brand or sender but not an address, use the returned \`from\` field to identify the sender first, refine if needed, and then act only on those exact threadIds. Do not add extra filters the user did not ask for.
 - For topic-based or age-based cleanup, search first and then use thread-level actions on the matched results.
-- When the user asks for all matching emails, keep paginating until searchInbox returns hasMore=false. Do not claim full completion while hasMore=true or while any matching batch still has not been handled.
+- For all-matching cleanup, repeat searchInbox and manageInbox for each page of results until searchInbox returns hasMore=false.
+- Do not claim full completion while hasMore=true or while any matching batch still has not been handled.
 - Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
 - For ongoing sender-level batch cleanup, once the user confirms the category, continue subsequent batches without re-asking.`,
     `Rules and automation:

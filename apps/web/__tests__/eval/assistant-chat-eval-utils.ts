@@ -2,6 +2,7 @@ import type { ModelMessage } from "ai";
 import { ActionType } from "@/generated/prisma/enums";
 import type { getEmailAccount } from "@/__tests__/helpers";
 import type { MessageContext } from "@/app/api/chat/validation";
+import { writeEvalDebugArtifact } from "@/__tests__/eval/debug-artifacts";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
 
@@ -22,6 +23,10 @@ export type UpdateRuleActionsInput = {
 };
 
 export type AssistantChatTrace = {
+  debugArtifactPath?: string | null;
+  finalText: string;
+  resolvedModels: unknown[];
+  steps: unknown[];
   toolCalls: RecordedToolCall[];
   stepTexts: string[];
 };
@@ -41,6 +46,8 @@ export async function captureAssistantChatTrace({
 }) {
   const recordedToolCalls: RecordedToolCall[] = [];
   const stepTexts: string[] = [];
+  const steps: unknown[] = [];
+  const resolvedModels: unknown[] = [];
 
   const result = await aiProcessAssistantChat({
     messages,
@@ -49,7 +56,10 @@ export async function captureAssistantChatTrace({
     inboxStats,
     context,
     logger,
-    onStepFinish: async ({ text, toolCalls }) => {
+    onStepFinish: async (step) => {
+      steps.push(step);
+
+      const { text, toolCalls } = step;
       if (text?.trim()) {
         stepTexts.push(text.trim());
       }
@@ -61,11 +71,34 @@ export async function captureAssistantChatTrace({
         });
       }
     },
+    onModelResolved: (resolvedModel) => {
+      resolvedModels.push(resolvedModel);
+    },
   });
 
   await result.consumeStream();
 
+  const debugArtifactPath = writeEvalDebugArtifact({
+    kind: "assistant-chat-trace",
+    data: {
+      emailAccountId: emailAccount.id,
+      provider: emailAccount.account.provider,
+      model: emailAccount.user.aiModel,
+      messages,
+      inboxStats,
+      context,
+      resolvedModels,
+      steps,
+      toolCalls: recordedToolCalls,
+      finalText: result.text,
+    },
+  });
+
   return {
+    debugArtifactPath,
+    finalText: result.text,
+    resolvedModels,
+    steps,
     toolCalls: recordedToolCalls,
     stepTexts,
   };

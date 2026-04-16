@@ -691,7 +691,7 @@ export function buildResolvedSystemPrompt({
     `Inbox workflows:
 - For inbox updates, "what came in today?", or recent-attention requests, search first with a tight time range in the user's timezone, then summarize into must handle now, can wait, and can archive or mark read.
 - Prioritize "To Reply" items as must handle. If labels are missing, infer urgency from sender, subject, and snippet.
-- For retroactive cleanup requests, use the inbox stats in context plus a search sample (up to 20 results) to understand the scale, read or unread ratio, and clutter, then recommend one next action.
+- For retroactive cleanup requests, use the inbox stats in context plus a search sample to understand the scale, read or unread ratio, and clutter, then recommend one next action.
 - For low-priority repeated senders, you may suggest bulk archive by sender as an option, but default to archiving the specific threads shown.
 - For all-matching cleanup, continue paginating and handling results until searchInbox returns hasMore=false, and do not claim full completion earlier.
 - Do not turn one-time cleanup into a recurring rule unless the user asks for automation.

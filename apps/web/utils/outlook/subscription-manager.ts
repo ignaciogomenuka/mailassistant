@@ -35,7 +35,6 @@ export class OutlookSubscriptionManager {
   } | null> {
     const forceRefresh = options?.forceRefresh === true;
     try {
-      // Check if we already have a valid subscription and reuse it when possible
       const existing = await this.getExistingSubscription();
 
       if (existing?.subscriptionId && existing.expirationDate) {
@@ -81,8 +80,7 @@ export class OutlookSubscriptionManager {
         this.logger.info("No existing subscription found; creating new");
       }
 
-      // If we got here, the subscription is missing or expiring soon. Cancel and create a new one.
-      await this.cancelExistingSubscription();
+      await this.cancelSubscription(existing?.subscriptionId);
 
       const subscription = await this.client.watchEmails();
 
@@ -104,48 +102,25 @@ export class OutlookSubscriptionManager {
     }
   }
 
-  /**
-   * Ensures there is a valid subscription and persists it only when changed.
-   * Returns the active subscription expiration date or null on failure.
-   */
   async ensureSubscription(): Promise<Date | null> {
-    const result = await this.createSubscription();
-    if (!result?.subscriptionId) return null;
-
-    if (result.changed) {
-      try {
-        await this.updateSubscriptionInDatabase({
-          expirationDate: result.expirationDate,
-          subscriptionId: result.subscriptionId,
-        });
-      } catch (error) {
-        this.logger.error("Failed to save subscription to database", {
-          subscriptionId: result.subscriptionId,
-          error,
-        });
-
-        try {
-          await this.client.unwatchEmails(result.subscriptionId);
-          this.logger.info("Canceled orphaned subscription after DB failure", {
-            subscriptionId: result.subscriptionId,
-          });
-        } catch (cancelError) {
-          this.logger.error("Failed to cancel orphaned subscription", {
-            subscriptionId: result.subscriptionId,
-            error: cancelError,
-          });
-        }
-
-        captureException(error, { emailAccountId: this.emailAccountId });
-        return null;
-      }
-    }
-
-    return result.expirationDate;
+    return (await this.createAndPersistSubscription())?.expirationDate ?? null;
   }
 
   async refreshSubscription(): Promise<Date | null> {
-    const result = await this.createSubscription({ forceRefresh: true });
+    return (
+      (await this.createAndPersistSubscription({ forceRefresh: true }))
+        ?.expirationDate ?? null
+    );
+  }
+
+  /**
+   * Creates (or reuses) a subscription, persists it to the DB when changed,
+   * and cleans up orphaned subscriptions on DB failure.
+   */
+  async createAndPersistSubscription(options?: {
+    forceRefresh?: boolean;
+  }): Promise<{ expirationDate: Date; subscriptionId: string } | null> {
+    const result = await this.createSubscription(options);
     if (!result?.subscriptionId) return null;
 
     if (result.changed) {
@@ -177,40 +152,24 @@ export class OutlookSubscriptionManager {
       }
     }
 
-    return result.expirationDate;
+    return {
+      expirationDate: result.expirationDate,
+      subscriptionId: result.subscriptionId,
+    };
   }
 
-  private async cancelExistingSubscription() {
+  private async cancelSubscription(subscriptionId: string | null | undefined) {
+    if (!subscriptionId) return;
+
     try {
-      const existing = await this.getExistingSubscription();
-      const existingSubscriptionId = existing?.subscriptionId || null;
-
-      if (existingSubscriptionId) {
-        this.logger.info("Canceling existing subscription", {
-          existingSubscriptionId,
-        });
-
-        try {
-          await this.client.unwatchEmails(existingSubscriptionId);
-          this.logger.info("Successfully canceled existing subscription", {
-            existingSubscriptionId,
-          });
-        } catch (error) {
-          // Log but don't fail - the subscription might already be expired/invalid
-          this.logger.warn(
-            "Failed to cancel existing subscription (may already be expired)",
-            {
-              existingSubscriptionId,
-              error,
-            },
-          );
-        }
-      } else {
-        this.logger.info("No existing subscription found");
-      }
+      await this.client.unwatchEmails(subscriptionId);
+      this.logger.info("Canceled existing subscription", { subscriptionId });
     } catch (error) {
-      this.logger.error("Error checking for existing subscription", { error });
-      // Don't throw - we still want to try creating a new subscription
+      // The subscription might already be expired/invalid
+      this.logger.warn(
+        "Failed to cancel existing subscription (may already be expired)",
+        { subscriptionId, error },
+      );
     }
   }
 
@@ -239,10 +198,6 @@ export class OutlookSubscriptionManager {
     expirationDate: Date;
     subscriptionId: string;
   }): Promise<void> {
-    if (!subscription.expirationDate) {
-      throw new Error("Subscription missing expiration date");
-    }
-
     const expirationDate = subscription.expirationDate;
     const now = new Date();
 
@@ -359,7 +314,7 @@ export async function createManagedOutlookSubscription({
   emailAccountId: string;
   logger: Logger;
   forceRefresh?: boolean;
-}): Promise<Date | null> {
+}): Promise<{ expirationDate: Date; subscriptionId: string } | null> {
   const provider = await createEmailProvider({
     emailAccountId,
     provider: "microsoft",
@@ -371,7 +326,5 @@ export async function createManagedOutlookSubscription({
     logger,
   );
 
-  return forceRefresh
-    ? await manager.refreshSubscription()
-    : await manager.ensureSubscription();
+  return manager.createAndPersistSubscription({ forceRefresh });
 }

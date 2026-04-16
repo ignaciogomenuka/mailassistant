@@ -59,20 +59,15 @@ export async function processOutlookLifecycleNotification({
 
     case "subscriptionRemoved": {
       log.warn("Received Outlook lifecycle subscription removed notification");
-      await createManagedOutlookSubscription({
+      const refreshed = await createManagedOutlookSubscription({
         emailAccountId: emailAccount.id,
         logger: log,
         forceRefresh: true,
       });
-      const refreshedEmailAccount = await prisma.emailAccount.findUnique({
-        where: { id: emailAccount.id },
-        select: { watchEmailsSubscriptionId: true },
-      });
       await reconcileRecentOutlookMessages({
         emailAccountId: emailAccount.id,
         emailAddress: emailAccount.email,
-        subscriptionId:
-          refreshedEmailAccount?.watchEmailsSubscriptionId || undefined,
+        subscriptionId: refreshed?.subscriptionId,
         after: await getLifecycleReconcileStartDate(emailAccount.id),
         maxMessages: OUTLOOK_LIFECYCLE_RECONCILE_MAX_MESSAGES,
         logger: log,
@@ -91,6 +86,9 @@ export async function processOutlookLifecycleNotification({
       });
       return;
     }
+
+    default:
+      log.warn("Unhandled Outlook lifecycle event");
   }
 }
 

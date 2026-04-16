@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   build:
@@ -18,9 +19,14 @@ jobs:
       - name: Build changelog.mdx from entries
         run: node docs/scripts/build-changelog.mjs
 
-      - name: Commit updated changelog
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/changelog.mdx
-          git diff --staged --quiet || (git commit -m "docs: rebuild changelog" && git push)
+      - name: Create changelog pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: docs/changelog.mdx
+          base: main
+          branch: automation/rebuild-changelog
+          commit-message: "docs: rebuild changelog"
+          delete-branch: true
+          title: "docs: rebuild changelog"
+          body: |
+            Automated update for the generated changelog document.

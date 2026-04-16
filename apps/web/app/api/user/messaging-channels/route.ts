@@ -117,9 +117,11 @@ async function getSlackTargetNames(
   const slackChannels = channels.filter(isOperationalSlackChannel);
   const channelIdsByToken = new Map<string, string[]>();
   for (const channel of slackChannels) {
-    const channelIds = channelIdsByToken.get(channel.accessToken) ?? [];
+    const accessToken = channel.accessToken;
+    if (!accessToken) continue;
+    const channelIds = channelIdsByToken.get(accessToken) ?? [];
     channelIds.push(channel.id);
-    channelIdsByToken.set(channel.accessToken, channelIds);
+    channelIdsByToken.set(accessToken, channelIds);
   }
 
   await Promise.all(

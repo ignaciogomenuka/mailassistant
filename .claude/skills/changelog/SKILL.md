@@ -8,6 +8,8 @@ disable-model-invocation: true
 
 Add changelog entries as individual files in `docs/changelog-entries/`. A GitHub Action rebuilds `docs/changelog.mdx` on merge.
 
+Use a single long-lived branch for changelog automation: `automation/changelog`. The automation should update the existing open changelog PR from that branch when possible instead of opening multiple concurrent changelog PRs.
+
 ## Principles
 
 1. **User-facing only.** No infrastructure, CI, security hardening, billing internals, queue fixes, cron changes, self-hosting features, or anything users don't directly see or interact with.
@@ -19,7 +21,7 @@ Add changelog entries as individual files in `docs/changelog-entries/`. A GitHub
 
 ## Format
 
-Create a file named `docs/changelog-entries/YYYY-MM-DD.mdx` with frontmatter + markdown:
+Create or update `docs/changelog-entries/YYYY-MM-DD.mdx` with frontmatter + markdown:
 
 ```mdx
 ---
@@ -55,5 +57,8 @@ The date is derived from the filename automatically.
 1. Review recent merged PRs: `gh pr list --repo elie222/inbox-zero --state merged --limit 30 --json number,title,mergedAt`
 2. Filter to user-facing changes only
 3. Group into a theme — find the headline
-4. Create a new file `docs/changelog-entries/YYYY-MM-DD.mdx` with frontmatter (`description`) and markdown content
-5. Do **not** edit `docs/changelog.mdx` directly — a GitHub Action rebuilds it automatically after merge
+4. Check for an existing open changelog PR from `automation/changelog` to `main`: `gh pr list --repo elie222/inbox-zero --head automation/changelog --base main --state open --json number,title,url`
+5. Create or update today's file `docs/changelog-entries/YYYY-MM-DD.mdx` with frontmatter (`description`) and markdown content
+6. If today's file already exists, merge the new updates into that file instead of creating a second entry for the same day
+7. If the open PR from `automation/changelog` exists, update that branch and PR; otherwise create it from `automation/changelog`
+8. Do **not** edit `docs/changelog.mdx` directly — a GitHub Action rebuilds it automatically after merge

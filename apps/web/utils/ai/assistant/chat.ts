@@ -47,6 +47,7 @@ import {
 } from "./chat-rule-state";
 
 export const maxDuration = 120;
+const ASSISTANT_CHAT_MAX_STEPS = 25;
 
 type AssistantChatOnStepFinish = NonNullable<
   Parameters<typeof toolCallAgentStream>[0]["onStepFinish"]
@@ -295,7 +296,7 @@ export async function aiProcessAssistantChat({
       });
       await onStepFinish?.(step);
     },
-    maxSteps: 10,
+    maxSteps: ASSISTANT_CHAT_MAX_STEPS,
     tools: allTools,
   });
 
@@ -650,7 +651,8 @@ export function buildResolvedSystemPrompt({
 - Do not say "I've noted that", "I'll remember that", or similar durable-memory language unless saveMemory succeeded or returned requiresConfirmation in this turn.`,
     `Write and confirmation policy:
 - When the user gives a direct action request for specific threads (archive, trash, label, mark read), search for the relevant threads and then execute the action. The user's request is the confirmation — do not stop after searching to summarize or ask for permission.
-- Do not treat broad sender-level or category-level cleanup as already confirmed. If the action would affect all mail from a sender or a broad category rather than just the threads you found, identify the scope first and ask for one brief confirmation before writing.
+- When the user explicitly asks to clean up all mail from a sender or category, treat that direct request as confirmation for that broad cleanup.
+- Do not expand a request for the threads shown or found in this turn into a broader sender-level or category-level cleanup on your own. If broader scope is only inferred from a search sample rather than clearly requested, ask one brief confirmation before writing.
 - If the user asks for only the emails currently shown or found in this turn, use thread-level actions with those threadIds. Do not switch to sender-wide cleanup unless the user clearly asks for all mail from that sender.
 - For ambiguous requests where the intent is unclear (archive vs trash vs mark read), ask a brief clarification question before writing.
 - Never claim that you changed a setting, rule, inbox state, or memory unless the corresponding write tool call in this turn succeeded.
@@ -677,7 +679,9 @@ export function buildResolvedSystemPrompt({
 - For retroactive cleanup requests, use the inbox stats in context plus a search sample (up to 50 results) to understand the scale, read or unread ratio, and clutter, then recommend one next action.
 - For low-priority repeated senders, you may suggest bulk archive by sender as an option, but default to archiving the specific threads shown.
 - For requests about a small explicit set like "the two emails", "these emails", or "the emails you found", search narrowly enough to identify that set before writing, then act only on those threadIds.
-- For topic-based or age-based cleanup, search first and then use thread-level actions on the matched results. When the user asks for all matching emails, keep paginating until searchInbox returns hasMore=false and finish the thread-level action across every batch before reporting completion. Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
+- For topic-based or age-based cleanup, search first and then use thread-level actions on the matched results.
+- When the user asks for all matching emails, keep paginating until searchInbox returns hasMore=false. If you are close to the step limit and cannot finish every batch safely in this turn, say that the cleanup is only partially complete and do not claim full completion.
+- Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
 - For ongoing sender-level batch cleanup, once the user confirms the category, continue subsequent batches without re-asking.`,
     `Rules and automation:
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.

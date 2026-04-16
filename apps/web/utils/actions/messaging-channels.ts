@@ -78,18 +78,14 @@ export const updateSlackRouteAction = actionClient
         throw new SafeError("Messaging channel is not Slack");
       }
 
-      if (!channel.isConnected) {
-        throw new SafeError("Messaging channel is not connected");
-      }
-
-      if (!channel.accessToken) {
-        throw new SafeError("Messaging channel has no access token");
-      }
-
       if (!isMessagingChannelOperational(channel)) {
         throw new SafeError(
           getMessagingChannelReconnectMessage(channel.provider),
         );
+      }
+
+      if (!channel.accessToken) {
+        throw new SafeError("Messaging channel has no access token");
       }
 
       const target = await resolveSlackRouteTarget({
@@ -163,10 +159,6 @@ export const updateMessagingFeatureRouteAction = actionClient
 
       if (!channel) {
         throw new SafeError("Messaging channel not found");
-      }
-
-      if (!channel.isConnected) {
-        throw new SafeError("Messaging channel is not connected");
       }
 
       if (!isMessagingChannelOperational(channel)) {
@@ -418,9 +410,6 @@ export const toggleRuleChannelAction = actionClient
       }
 
       if (enabled) {
-        if (!channel.isConnected) {
-          throw new SafeError("Messaging channel is not connected");
-        }
         if (!isMessagingChannelOperational(channel)) {
           throw new SafeError(
             getMessagingChannelReconnectMessage(channel.provider),

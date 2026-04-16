@@ -111,8 +111,9 @@ async function getSlackTargetNames(
     channels.map((channel) => [channel.id, {} as Record<string, string>]),
   );
 
-  const slackChannels = channels.filter((channel) =>
-    isMessagingChannelOperational(channel),
+  const slackChannels = channels.filter(
+    (channel) =>
+      channel.provider === "SLACK" && isMessagingChannelOperational(channel),
   );
   const channelIdsByToken = new Map<string, string[]>();
   for (const channel of slackChannels) {

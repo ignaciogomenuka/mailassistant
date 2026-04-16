@@ -235,8 +235,7 @@ async function sendSlackRuleNotificationWithContext({
   if (
     !context.messagingChannel ||
     !isMessagingChannelOperational(context.messagingChannel) ||
-    context.messagingChannel.provider !== MessagingProvider.SLACK ||
-    !context.messagingChannel.accessToken
+    context.messagingChannel.provider !== MessagingProvider.SLACK
   ) {
     logger.warn("Skipping messaging notification with inactive Slack channel", {
       executedActionId: context.id,

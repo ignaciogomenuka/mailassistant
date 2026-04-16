@@ -384,10 +384,10 @@ describe("getExtraActions", () => {
     expect(getExtraActions()).not.toContain(ActionType.CALL_WEBHOOK);
   });
 
-  it("keeps CALL_WEBHOOK for persisted actions when webhook actions are disabled", () => {
+  it("omits CALL_WEBHOOK for persisted actions when webhook actions are disabled", () => {
     mockEnv.webhookActionsEnabled = false;
 
-    expect(getExtraActions([ActionType.CALL_WEBHOOK])).toContain(
+    expect(getExtraActions([ActionType.CALL_WEBHOOK])).not.toContain(
       ActionType.CALL_WEBHOOK,
     );
   });

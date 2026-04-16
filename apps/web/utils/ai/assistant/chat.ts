@@ -592,11 +592,13 @@ function getProviderSearchSyntaxPolicy(provider: string) {
   if (provider === "microsoft") {
     return `Provider search syntax:
 - Use KQL syntax for search: from:, to:, subject:, received>=YYYY-MM-DD, and keyword search.
+- When the sender or domain is known, prefer \`from:\` queries over a bare keyword.
 - Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.`;
   }
 
   return `Provider search syntax:
-- Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, and older_than:.`;
+- Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, and older_than:.
+- When the sender or domain is known, prefer \`from:\` queries over a bare keyword.`;
 }
 
 function getProviderInboxTriagePolicy(provider: string) {

@@ -211,8 +211,8 @@ function searchInboxInputSchema(provider: string) {
       .number()
       .int()
       .min(1)
-      .max(50)
-      .default(50)
+      .max(20)
+      .default(20)
       .describe("Maximum number of messages to return."),
     pageToken: z
       .string()
@@ -246,9 +246,10 @@ export const searchInboxTool = ({
           logger,
         });
 
+        const effectiveLimit = limit ?? 20;
         const { messages, nextPageToken } = await emailProvider.searchMessages({
           query,
-          maxResults: limit ?? 50,
+          maxResults: effectiveLimit,
           pageToken: pageToken ?? undefined,
         });
 
@@ -261,9 +262,9 @@ export const searchInboxTool = ({
 
         const labelsById = createLabelLookupMap(labels);
 
-        const items = messages.map((message) =>
-          mapMessageForSearchResult(message, labelsById),
-        );
+        const items = messages
+          .slice(0, effectiveLimit)
+          .map((message) => mapMessageForSearchResult(message, labelsById));
 
         return {
           queryUsed: query,

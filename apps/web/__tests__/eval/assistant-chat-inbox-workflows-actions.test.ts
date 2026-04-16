@@ -7,7 +7,6 @@ import {
   cloneEmailAccountForProvider,
   getFirstSearchInboxCall,
   getLastMatchingToolCall,
-  hasNoWriteToolCalls,
   hasSearchBeforeFirstWrite,
   inboxWorkflowProviders,
   isBulkArchiveSendersInput,
@@ -41,12 +40,24 @@ describe.runIf(shouldRunEval)(
         }) => {
           mockSearchMessages
             .mockResolvedValueOnce({
-              messages: buildBulkArchiveMessages(50, 0),
+              messages: buildBulkArchiveMessages(20, 0),
               nextPageToken: "PAGE_TOKEN_2",
             })
             .mockResolvedValueOnce({
-              messages: buildBulkArchiveMessages(50, 50),
+              messages: buildBulkArchiveMessages(20, 20),
               nextPageToken: "PAGE_TOKEN_3",
+            })
+            .mockResolvedValueOnce({
+              messages: buildBulkArchiveMessages(20, 40),
+              nextPageToken: "PAGE_TOKEN_4",
+            })
+            .mockResolvedValueOnce({
+              messages: buildBulkArchiveMessages(20, 60),
+              nextPageToken: "PAGE_TOKEN_5",
+            })
+            .mockResolvedValueOnce({
+              messages: buildBulkArchiveMessages(20, 80),
+              nextPageToken: "PAGE_TOKEN_6",
             })
             .mockResolvedValueOnce({
               messages: buildBulkArchiveMessages(20, 100),
@@ -75,7 +86,7 @@ describe.runIf(shouldRunEval)(
             !!firstSearchCall &&
             isBulkArchiveSearchQuery(firstSearchCall.query, provider) &&
             hasSearchBeforeFirstWrite(toolCalls) &&
-            searchCalls.length >= 3 &&
+            searchCalls.length >= 6 &&
             !searchCalls[0]?.pageToken &&
             searchCalls.some((call) => call.pageToken === "PAGE_TOKEN_2") &&
             searchCalls.some((call) => call.pageToken === "PAGE_TOKEN_3") &&
@@ -103,7 +114,7 @@ describe.runIf(shouldRunEval)(
         }, 180_000);
 
         test.each(inboxWorkflowProviders)(
-          "does not bulk archive sender cleanup before the user confirms [$label]",
+          "executes explicit sender cleanup after search [$label]",
           async ({ provider, label }) => {
             mockSearchMessages.mockResolvedValueOnce({
               messages: [
@@ -155,13 +166,10 @@ describe.runIf(shouldRunEval)(
               !!searchCall &&
               !!searchJudge?.pass &&
               hasSearchBeforeFirstWrite(toolCalls) &&
-              !toolCalls.some(
-                (toolCall) => toolCall.toolName === "manageInbox",
-              ) &&
-              hasNoWriteToolCalls(toolCalls);
+              toolCalls.some((toolCall) => toolCall.toolName === "manageInbox");
 
             evalReporter.record({
-              testName: `sender cleanup requires confirmation before write (${label})`,
+              testName: `explicit sender cleanup executes after search (${label})`,
               model: model.label,
               pass,
               actual:

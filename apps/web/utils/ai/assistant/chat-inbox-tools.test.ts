@@ -555,7 +555,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     expect(result.hasMore).toBe(true);
   });
 
-  it("searchInbox uses the full default page size when limit is omitted", async () => {
+  it("searchInbox uses the capped default page size when limit is omitted", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [
         {
@@ -598,7 +598,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
 
     expect(searchMessages).toHaveBeenCalledWith({
       query: "older_than:3y is:unread",
-      maxResults: 50,
+      maxResults: 20,
       pageToken: undefined,
     });
   });

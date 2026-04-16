@@ -436,17 +436,44 @@ function isBulkArchiveSearchQuery(
   const normalizedQuery = query.toLowerCase();
 
   if (provider === "microsoft") {
+    const receivedDateMatch = normalizedQuery.match(
+      /received\s*(?:<=|<)\s*(\d{4}-\d{2}-\d{2})(?:t[\d:.+-]+z?)?/,
+    );
+
     return (
       normalizedQuery.includes("unread") &&
-      /received\s*(?:<=|<)\s*\d{4}-\d{2}-\d{2}(?:t[\d:.+-]+z?)?/.test(
-        normalizedQuery,
-      )
+      !!receivedDateMatch?.[1] &&
+      isApproxThreeYearsAgo(receivedDateMatch[1], "-")
     );
   }
 
+  const beforeDateMatch = normalizedQuery.match(/before:(\d{4}\/\d{2}\/\d{2})/);
+
   return (
     normalizedQuery.includes("is:unread") &&
-    (/older_than:\d+[dmy]/.test(normalizedQuery) ||
-      /before:\d{4}\/\d{2}\/\d{2}/.test(normalizedQuery))
+    (normalizedQuery.includes("older_than:3y") ||
+      (!!beforeDateMatch?.[1] &&
+        isApproxThreeYearsAgo(beforeDateMatch[1], "/")))
   );
+}
+
+function isApproxThreeYearsAgo(
+  dateString: string,
+  separator: "-" | "/",
+  maxDayDelta = 2,
+) {
+  const parts = dateString.split(separator).map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return false;
+
+  const [year, month, day] = parts;
+  const actual = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(actual.getTime())) return false;
+
+  const expected = new Date();
+  expected.setUTCHours(0, 0, 0, 0);
+  expected.setUTCFullYear(expected.getUTCFullYear() - 3);
+
+  const dayDelta = Math.abs(actual.getTime() - expected.getTime()) / 86_400_000;
+
+  return dayDelta <= maxDayDelta;
 }

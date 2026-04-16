@@ -791,6 +791,53 @@ describe("chat inbox tools - sender categories", () => {
     vi.useRealTimers();
   });
 
+  it("getSenderCategorizationStatus caps waitMs at 1500", async () => {
+    vi.useFakeTimers();
+    mockGetCategorizationProgress.mockResolvedValue({
+      totalItems: 8,
+      completedItems: 3,
+      status: "running",
+      startedAt: "2026-04-16T00:00:00.000Z",
+      updatedAt: "2026-04-16T00:01:00.000Z",
+    });
+    mockGetCategorizationStatusSnapshot.mockReturnValue({
+      status: "running",
+      totalItems: 8,
+      completedItems: 3,
+      remainingItems: 5,
+      message: "Categorizing senders: 3 of 8 completed.",
+    });
+
+    const toolInstance = getSenderCategorizationStatusTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const resultPromise = (toolInstance.execute as any)({ waitMs: 2000 });
+
+    await vi.advanceTimersByTimeAsync(1499);
+    expect(mockGetCategorizationProgress).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+
+    const result = await resultPromise;
+
+    expect(mockGetCategorizationProgress).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+    });
+    expect(result).toEqual({
+      status: "running",
+      totalItems: 8,
+      completedItems: 3,
+      remainingItems: 5,
+      message: "Categorizing senders: 3 of 8 completed.",
+    });
+
+    vi.useRealTimers();
+  });
+
   it("manageSenderCategory delegates to the archive helper", async () => {
     vi.mocked(createEmailProvider).mockResolvedValue({
       provider: "google",

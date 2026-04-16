@@ -38,6 +38,7 @@ import {
 } from "@/utils/redis/categorization-progress";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
+const MAX_SENDER_CATEGORIZATION_WAIT_MS = 1500;
 
 const recipientListSchema = z
   .string()
@@ -210,7 +211,7 @@ const getSenderCategorizationStatusInputSchema = z.object({
     .number()
     .int()
     .min(0)
-    .max(2000)
+    .max(MAX_SENDER_CATEGORIZATION_WAIT_MS)
     .default(0)
     .describe(
       "Optional server-side wait before reading progress. Use for short bounded polling only.",
@@ -329,8 +330,7 @@ export const getSenderCategorizationStatusTool = ({
   logger: Logger;
 }) =>
   tool({
-    description:
-      "Check sender categorization progress. Use this after startSenderCategorization to show progress in chat or to poll briefly before deciding whether category cleanup can continue. Keep polling bounded to short waits only, with at most 3 polls and waitMs no higher than 1500 per poll. If categorization is still running after that bounded polling, stop and report the progress instead of falling back to manual searchInbox pagination. waitMs optionally delays the read server-side. This does not change inbox state.",
+    description: `Check sender categorization progress. Use this after startSenderCategorization to show progress in chat or to poll briefly before deciding whether category cleanup can continue. Keep polling bounded to short waits only, with at most 3 polls and waitMs no higher than ${MAX_SENDER_CATEGORIZATION_WAIT_MS} per poll. If categorization is still running after that bounded polling, stop and report the progress instead of falling back to manual searchInbox pagination. waitMs optionally delays the read server-side. This does not change inbox state.`,
     inputSchema: getSenderCategorizationStatusInputSchema,
     execute: async ({ waitMs }) => {
       trackToolCall({
@@ -340,8 +340,13 @@ export const getSenderCategorizationStatusTool = ({
       });
 
       try {
-        if (waitMs > 0) {
-          await sleep(waitMs);
+        const boundedWaitMs = Math.min(
+          waitMs,
+          MAX_SENDER_CATEGORIZATION_WAIT_MS,
+        );
+
+        if (boundedWaitMs > 0) {
+          await sleep(boundedWaitMs);
         }
 
         const progress = await getCategorizationProgress({ emailAccountId });

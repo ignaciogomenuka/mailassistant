@@ -3,17 +3,23 @@ import { redis } from "@/utils/redis";
 
 const CATEGORIZATION_PROGRESS_TTL_SECONDS = 15 * 60;
 
-const categorizationProgressSchema = z.object({
+const categorizationProgressCountsSchema = z.object({
   totalItems: z.number().int().min(0),
   completedItems: z.number().int().min(0),
+});
+
+const categorizationProgressSchema = categorizationProgressCountsSchema.extend({
   status: z.enum(["running", "completed"]),
   startedAt: z.string(),
   updatedAt: z.string(),
 });
 
-export type CategorizationProgress = z.infer<
-  typeof categorizationProgressSchema
->;
+const legacyCategorizationProgressSchema = categorizationProgressCountsSchema;
+
+type CategorizationProgress = z.infer<typeof categorizationProgressSchema>;
+type StoredCategorizationProgress =
+  | z.infer<typeof categorizationProgressSchema>
+  | z.infer<typeof legacyCategorizationProgressSchema>;
 
 export type CategorizationStatusSnapshot = {
   status: "idle" | "running" | "completed";
@@ -33,9 +39,16 @@ export async function getCategorizationProgress({
   emailAccountId: string;
 }) {
   const key = getKey({ emailAccountId });
-  const progress = await redis.get<CategorizationProgress>(key);
+  const progress = await redis.get<StoredCategorizationProgress>(key);
   if (!progress) return null;
-  return categorizationProgressSchema.parse(progress);
+
+  const parsedProgress = categorizationProgressSchema
+    .or(legacyCategorizationProgressSchema)
+    .safeParse(progress);
+
+  if (!parsedProgress.success) return null;
+
+  return normalizeCategorizationProgress(parsedProgress.data);
 }
 
 export async function saveCategorizationTotalItems({
@@ -134,5 +147,31 @@ export function getCategorizationStatusSnapshot(
     completedItems,
     remainingItems,
     message: `Categorizing senders: ${completedItems} of ${progress.totalItems} completed.`,
+  };
+}
+
+function normalizeCategorizationProgress(
+  progress: StoredCategorizationProgress,
+): CategorizationProgress {
+  const completedItems = Math.min(progress.completedItems, progress.totalItems);
+  const timestamp = new Date().toISOString();
+
+  if (
+    "status" in progress &&
+    "startedAt" in progress &&
+    "updatedAt" in progress
+  ) {
+    return {
+      ...progress,
+      completedItems,
+    };
+  }
+
+  return {
+    totalItems: progress.totalItems,
+    completedItems,
+    status: completedItems >= progress.totalItems ? "completed" : "running",
+    startedAt: timestamp,
+    updatedAt: timestamp,
   };
 }

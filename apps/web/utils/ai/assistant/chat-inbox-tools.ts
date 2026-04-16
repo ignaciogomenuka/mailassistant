@@ -4,7 +4,11 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createEmailProvider } from "@/utils/email/provider";
-import { extractEmailAddress, splitRecipientList } from "@/utils/email";
+import {
+  extractEmailAddress,
+  extractUniqueEmailAddresses,
+  splitRecipientList,
+} from "@/utils/email";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
@@ -251,7 +255,7 @@ export const getSenderCategoryOverviewTool = ({
 }) =>
   tool({
     description:
-      "Inspect sender categories for the current account. Returns exact category names, sender counts, sample senders, uncategorized sender count, and current categorization progress. Use this before any category-based cleanup. This is read-only and should be preferred over searchInbox when the user asks to clean up by category.",
+      "Inspect sender categories for the current account. Returns exact category names, sender counts, sample senders, uncategorized sender count, and current categorization progress. Use this before any category-based cleanup, and prefer it over searchInbox when the user asks to clean up by category. If the user only wants the threads already shown or a small explicit set of emails, stay with searchInbox and manageInbox instead.",
     inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({ tool: "get_sender_category_overview", email, logger });
@@ -284,7 +288,7 @@ export const startSenderCategorizationTool = ({
 }) =>
   tool({
     description:
-      "Start sender categorization for the current account. This creates default categories if needed, enables automatic sender categorization, queues uncategorized senders for AI categorization, and returns current progress. Use this only when category cleanup is needed and getSenderCategoryOverview shows category coverage is not ready. Safe to call again: if a run is already active, it returns the existing run instead of starting a duplicate job.",
+      "Start sender categorization for the current account. This creates default categories if needed, enables automatic sender categorization, queues uncategorized senders for AI categorization, and returns current progress. Use this only when category cleanup is needed and getSenderCategoryOverview shows category coverage is not ready. After starting, poll getSenderCategorizationStatus only briefly before deciding whether cleanup can continue. Safe to call again: if a run is already active, it returns the existing run instead of starting a duplicate job.",
     inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({ tool: "start_sender_categorization", email, logger });
@@ -326,7 +330,7 @@ export const getSenderCategorizationStatusTool = ({
 }) =>
   tool({
     description:
-      "Check sender categorization progress. Use this after startSenderCategorization to show progress in chat or to poll briefly before deciding whether category cleanup can continue. waitMs optionally delays the read server-side. This does not change inbox state.",
+      "Check sender categorization progress. Use this after startSenderCategorization to show progress in chat or to poll briefly before deciding whether category cleanup can continue. Keep polling bounded to short waits only, with at most 3 polls and waitMs no higher than 1500 per poll. If categorization is still running after that bounded polling, stop and report the progress instead of falling back to manual searchInbox pagination. waitMs optionally delays the read server-side. This does not change inbox state.",
     inputSchema: getSenderCategorizationStatusInputSchema,
     execute: async ({ waitMs }) => {
       trackToolCall({
@@ -368,7 +372,7 @@ export const manageSenderCategoryTool = ({
 }) =>
   tool({
     description:
-      'Archive all mail from senders currently assigned to one sender category. Use this only after getSenderCategoryOverview confirmed the exact category ID or exact category name the user wants. Prefer categoryId when available. Supports the special category name "Uncategorized". Do not use this for thread-level cleanup or arbitrary search results; use manageInbox instead.',
+      'Archive all mail from senders currently assigned to one sender category. Use this only after getSenderCategoryOverview confirmed the exact category ID or exact category name the user wants. Prefer categoryId when available. Supports the special category name "Uncategorized". If the requested category name does not exactly exist, do not guess; list the available category names and ask a brief clarification question instead. Do not use this for thread-level cleanup or arbitrary search results; use manageInbox instead.',
     inputSchema: manageSenderCategoryInputSchema,
     execute: async ({ categoryId, categoryName }) => {
       trackToolCall({ tool: "manage_sender_category", email, logger });
@@ -1499,13 +1503,7 @@ function hasOnlyValidRecipients(recipientList: string) {
 }
 
 function normalizeSenderEmails(fromEmails: string[]) {
-  return [
-    ...new Set(
-      fromEmails
-        .map((fromEmail) => extractEmailAddress(fromEmail))
-        .filter((fromEmail): fromEmail is string => Boolean(fromEmail)),
-    ),
-  ];
+  return extractUniqueEmailAddresses(fromEmails);
 }
 
 const LABEL_MESSAGE_CONCURRENCY = 1;

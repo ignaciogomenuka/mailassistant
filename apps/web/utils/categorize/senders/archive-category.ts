@@ -1,6 +1,6 @@
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { extractEmailAddress } from "@/utils/email";
+import { extractUniqueEmailAddresses } from "@/utils/email";
 import type { EmailProvider } from "@/utils/email/types";
 
 const UNCATEGORIZED_CATEGORY_NAME = "Uncategorized";
@@ -41,8 +41,9 @@ export async function archiveCategory({
     },
   });
 
-  const normalizedSenderEmails = normalizeSenderEmails(
+  const normalizedSenderEmails = extractUniqueEmailAddresses(
     senderEmails.map((sender) => sender.email),
+    { lowercase: true },
   );
 
   if (!normalizedSenderEmails.length) {
@@ -174,16 +175,6 @@ async function resolveCategory({
       ),
     }),
   };
-}
-
-function normalizeSenderEmails(senderEmails: string[]) {
-  return [
-    ...new Set(
-      senderEmails
-        .map((senderEmail) => extractEmailAddress(senderEmail)?.toLowerCase())
-        .filter((senderEmail): senderEmail is string => Boolean(senderEmail)),
-    ),
-  ];
 }
 
 function buildCategoryNotFoundMessage({

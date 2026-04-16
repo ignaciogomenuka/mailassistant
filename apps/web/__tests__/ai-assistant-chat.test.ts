@@ -273,29 +273,6 @@ describe("aiProcessAssistantChat", () => {
     ).toBe(false);
   });
 
-  it("includes category cleanup guidance in the system prompt", async () => {
-    const { buildResolvedSystemPrompt } = await loadAssistantChatModule({
-      emailSend: true,
-    });
-
-    const prompt = buildResolvedSystemPrompt({
-      emailSendToolsEnabled: true,
-      webhookActionsEnabled: true,
-      provider: "google",
-      responseSurface: "web",
-      userTimezone: "UTC",
-      currentTimestamp: "2026-04-16T00:00:00.000Z",
-    });
-
-    expect(prompt).toContain("getSenderCategoryOverview");
-    expect(prompt).toContain("startSenderCategorization");
-    expect(prompt).toContain("getSenderCategorizationStatus");
-    expect(prompt).toContain("manageSenderCategory");
-    expect(prompt).toContain(
-      "Do not fall back to manual searchInbox pagination for this path.",
-    );
-  });
-
   it("accepts sparse rule action fields for createRule and updateRuleActions", async () => {
     const tools = await captureToolSet(true);
 

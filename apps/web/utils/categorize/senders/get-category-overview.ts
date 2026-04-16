@@ -20,6 +20,14 @@ export async function getCategoryOverview({
           id: true,
           name: true,
           description: true,
+          emailSenders: {
+            orderBy: { updatedAt: "desc" },
+            take: CATEGORY_SENDER_SAMPLE_LIMIT,
+            select: {
+              email: true,
+              name: true,
+            },
+          },
           _count: {
             select: {
               emailSenders: true,
@@ -40,31 +48,6 @@ export async function getCategoryOverview({
       getCategorizationProgress({ emailAccountId }),
     ]);
 
-  const categorySamples = await Promise.all(
-    categories.map(async (category) => ({
-      categoryId: category.id,
-      sampleSenders: await prisma.newsletter.findMany({
-        where: {
-          emailAccountId,
-          categoryId: category.id,
-        },
-        orderBy: { updatedAt: "desc" },
-        take: CATEGORY_SENDER_SAMPLE_LIMIT,
-        select: {
-          email: true,
-          name: true,
-        },
-      }),
-    })),
-  );
-
-  const sampleSendersByCategoryId = new Map(
-    categorySamples.map((categorySample) => [
-      categorySample.categoryId,
-      categorySample.sampleSenders,
-    ]),
-  );
-
   const categorizedSenderCount = categories.reduce(
     (total, category) => total + category._count.emailSenders,
     0,
@@ -80,7 +63,7 @@ export async function getCategoryOverview({
       name: category.name,
       description: category.description,
       senderCount: category._count.emailSenders,
-      sampleSenders: sampleSendersByCategoryId.get(category.id) ?? [],
+      sampleSenders: category.emailSenders,
     })),
   };
 }

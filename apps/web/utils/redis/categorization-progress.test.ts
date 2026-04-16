@@ -97,6 +97,25 @@ describe("categorization progress", () => {
     expect(progress).toBeNull();
   });
 
+  it("accepts legacy progress entries without status metadata", async () => {
+    vi.mocked(redis.get).mockResolvedValueOnce({
+      totalItems: 4,
+      completedItems: 4,
+    });
+
+    const progress = await getCategorizationProgress({
+      emailAccountId: "account-1",
+    });
+
+    expect(progress).toEqual({
+      totalItems: 4,
+      completedItems: 4,
+      status: "completed",
+      startedAt: "2026-04-16T12:00:00.000Z",
+      updatedAt: "2026-04-16T12:00:00.000Z",
+    });
+  });
+
   it("returns an idle snapshot when no progress exists", () => {
     expect(getCategorizationStatusSnapshot(null)).toEqual({
       status: "idle",

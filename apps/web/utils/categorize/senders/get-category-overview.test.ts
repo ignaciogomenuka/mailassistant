@@ -38,12 +38,17 @@ describe("getCategoryOverview", () => {
         id: "cat-1",
         name: "Newsletters",
         description: "Recurring updates",
+        emailSenders: [
+          { email: "first@example.com", name: "First" },
+          { email: "second@example.com", name: null },
+        ],
         _count: { emailSenders: 2 },
       },
       {
         id: "cat-2",
         name: "Receipts",
         description: null,
+        emailSenders: [],
         _count: { emailSenders: 0 },
       },
     ] as never);
@@ -51,12 +56,6 @@ describe("getCategoryOverview", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       autoCategorizeSenders: true,
     } as never);
-    prisma.newsletter.findMany
-      .mockResolvedValueOnce([
-        { email: "first@example.com", name: "First" },
-        { email: "second@example.com", name: null },
-      ] as never)
-      .mockResolvedValueOnce([] as never);
     mockGetCategorizationProgress.mockResolvedValueOnce({
       totalItems: 10,
       completedItems: 4,

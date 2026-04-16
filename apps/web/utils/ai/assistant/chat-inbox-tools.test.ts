@@ -555,6 +555,54 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     expect(result.hasMore).toBe(true);
   });
 
+  it("searchInbox uses the full default page size when limit is omitted", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [
+        {
+          id: "m1",
+          threadId: "t1",
+          snippet: "",
+          historyId: "",
+          inline: [],
+          headers: {
+            from: "a@b.com",
+            to: TEST_EMAIL,
+            subject: "hi",
+            date: "2026-01-01T00:00:00.000Z",
+          },
+          subject: "hi",
+          textPlain: "",
+          textHtml: "",
+          labelIds: [],
+          internalDate: "0",
+        },
+      ],
+      nextPageToken: undefined,
+    });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    await (toolInstance.execute as any)({
+      query: "older_than:3y is:unread",
+    });
+
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "older_than:3y is:unread",
+      maxResults: 50,
+      pageToken: undefined,
+    });
+  });
+
   it("searchInbox result reports hasMore=false when no more pages", async () => {
     (createEmailProvider as any).mockResolvedValue({
       searchMessages: vi.fn().mockResolvedValue({

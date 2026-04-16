@@ -36,15 +36,13 @@ export function getAvailableActionsForRuleEditor({
 export function getExtraAvailableActionsForRuleEditor(
   existingActionTypes: ActionType[] = [],
 ) {
-  const includesExistingActionType = (actionType: ActionType) =>
-    existingActionTypes.includes(actionType);
+  const showsWebhookAction =
+    env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false ||
+    existingActionTypes.includes(ActionType.CALL_WEBHOOK);
 
   return [
     ActionType.DIGEST,
-    ...(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false ||
-    includesExistingActionType(ActionType.CALL_WEBHOOK)
-      ? [ActionType.CALL_WEBHOOK]
-      : []),
+    ...(showsWebhookAction ? [ActionType.CALL_WEBHOOK] : []),
   ] as ActionType[];
 }
 

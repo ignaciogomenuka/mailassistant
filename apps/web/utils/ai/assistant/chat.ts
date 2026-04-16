@@ -26,12 +26,16 @@ import {
 import {
   forwardEmailTool,
   getAccountOverviewTool,
+  getSenderCategorizationStatusTool,
+  getSenderCategoryOverviewTool,
   manageInboxTool,
+  manageSenderCategoryTool,
   readAttachmentTool,
   readEmailTool,
   replyEmailTool,
   searchInboxTool,
   sendEmailTool,
+  startSenderCategorizationTool,
 } from "./chat-inbox-tools";
 import { createOrGetLabelTool, listLabelsTool } from "./chat-label-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
@@ -234,6 +238,11 @@ export async function aiProcessAssistantChat({
   const allTools = {
     getAssistantCapabilities: getAssistantCapabilitiesTool(toolOptions),
     getAccountOverview: getAccountOverviewTool(toolOptions),
+    getSenderCategoryOverview: getSenderCategoryOverviewTool(toolOptions),
+    startSenderCategorization: startSenderCategorizationTool(toolOptions),
+    getSenderCategorizationStatus:
+      getSenderCategorizationStatusTool(toolOptions),
+    manageSenderCategory: manageSenderCategoryTool(toolOptions),
     searchInbox: searchInboxTool(toolOptions),
     readEmail: readEmailTool(toolOptions),
     manageInbox: manageInboxTool(toolOptions),
@@ -655,6 +664,7 @@ export function buildResolvedSystemPrompt({
 - Use the minimum number of tools needed. Start with read-only context tools before write tools.
 - When a request can be completed with available tools, call the tool instead of only describing what you would do.
 - For plain inbox search requests, call searchInbox directly. Do not call getAccountOverview unless the user is explicitly asking for account context.
+- For category-based cleanup requests such as "archive all newsletters" or "clean up by category", start with getSenderCategoryOverview instead of paginating searchInbox.
 - Do not use rule tools, settings tools, or knowledge tools for personal memory requests unless the user is explicitly editing automation, changing a supported assistant setting, or naming the knowledge base.
 - For supported account-setting updates, call updateAssistantSettings directly without calling getAssistantCapabilities first.`,
     emailSendToolsEnabled
@@ -694,6 +704,12 @@ export function buildResolvedSystemPrompt({
 - For retroactive cleanup requests, use the inbox stats in context plus a search sample to understand the scale, read or unread ratio, and clutter, then recommend one next action.
 - For low-priority repeated senders, you may suggest bulk archive by sender as an option, but default to archiving the specific threads shown.
 - For all-matching cleanup, continue paginating and handling results until searchInbox returns hasMore=false, and do not claim full completion earlier.
+- For category cleanup, call getSenderCategoryOverview first and use the exact returned category names or IDs.
+- If category coverage is not ready yet, call startSenderCategorization and then poll getSenderCategorizationStatus with at most 3 bounded polls using waitMs up to 1500.
+- If sender categorization completes within that bounded polling window, call getSenderCategoryOverview again and then use manageSenderCategory.
+- If sender categorization is still running after the bounded polling window, stop and report the progress numbers. Do not fall back to manual searchInbox pagination for this path.
+- If the requested category name does not exactly exist, list the available category names and ask one brief clarification question. Do not guess.
+- If the user only wants the threads already shown or a small explicit set of emails, stay on searchInbox plus manageInbox thread actions instead of switching to category cleanup.
 - Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
 - For ongoing sender-level batch cleanup, once the user confirms the category, continue subsequent batches without re-asking.`,
     `Rules and automation:

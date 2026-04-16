@@ -544,8 +544,11 @@ export function MessagePart({
     return renderToolStatus({
       part: toolPart,
       loadingText: `Running ${toolLabel}...`,
-      renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo key={toolCallId} text={`Completed ${toolLabel}`} />
+      renderSuccess: ({ toolCallId, output }) => (
+        <BasicToolInfo
+          key={toolCallId}
+          text={getToolSuccessMessage(output) ?? `Completed ${toolLabel}`}
+        />
       ),
     });
   }
@@ -672,6 +675,11 @@ function getToolFailureMessage(output: unknown): string | null {
   }
 
   return null;
+}
+
+function getToolSuccessMessage(output: unknown): string | null {
+  if (typeof output !== "object" || output === null) return null;
+  return toFailureMessage((output as Record<string, unknown>).message);
 }
 
 function toFailureMessage(value: unknown): string | null {

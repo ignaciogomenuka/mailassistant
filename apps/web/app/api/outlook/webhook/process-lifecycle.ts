@@ -1,5 +1,5 @@
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
-import { reconcileRecentOutlookMessages } from "@/utils/outlook/reconcile-recent-messages";
+import { backfillRecentOutlookMessages } from "@/utils/outlook/backfill-recent-messages";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
@@ -45,7 +45,7 @@ export async function processOutlookLifecycleNotification({
   switch (notification.lifecycleEvent) {
     case "missed": {
       log.warn("Received Outlook lifecycle missed notification");
-      await reconcileRecentOutlookMessages({
+      await backfillRecentOutlookMessages({
         emailAccountId: emailAccount.id,
         emailAddress: emailAccount.email,
         subscriptionId:
@@ -64,7 +64,7 @@ export async function processOutlookLifecycleNotification({
         logger: log,
         forceRefresh: true,
       });
-      await reconcileRecentOutlookMessages({
+      await backfillRecentOutlookMessages({
         emailAccountId: emailAccount.id,
         emailAddress: emailAccount.email,
         subscriptionId: refreshed?.subscriptionId,

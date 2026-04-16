@@ -3,7 +3,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/prisma";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
-import { reconcileRecentOutlookMessages } from "@/utils/outlook/reconcile-recent-messages";
+import { backfillRecentOutlookMessages } from "@/utils/outlook/backfill-recent-messages";
 import { processOutlookLifecycleNotification } from "@/app/api/outlook/webhook/process-lifecycle";
 
 vi.mock("server-only", () => ({}));
@@ -23,8 +23,8 @@ vi.mock("@/utils/webhook/validate-webhook-account", () => ({
 vi.mock("@/utils/outlook/subscription-manager", () => ({
   createManagedOutlookSubscription: vi.fn(),
 }));
-vi.mock("@/utils/outlook/reconcile-recent-messages", () => ({
-  reconcileRecentOutlookMessages: vi.fn(),
+vi.mock("@/utils/outlook/backfill-recent-messages", () => ({
+  backfillRecentOutlookMessages: vi.fn(),
 }));
 
 describe("processOutlookLifecycleNotification", () => {
@@ -52,7 +52,7 @@ describe("processOutlookLifecycleNotification", () => {
       logger,
     });
 
-    expect(reconcileRecentOutlookMessages).toHaveBeenCalledWith(
+    expect(backfillRecentOutlookMessages).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAccountId: "email-account-id",
         emailAddress: "user@example.com",
@@ -84,6 +84,6 @@ describe("processOutlookLifecycleNotification", () => {
       logger: expect.anything(),
       forceRefresh: true,
     });
-    expect(reconcileRecentOutlookMessages).not.toHaveBeenCalled();
+    expect(backfillRecentOutlookMessages).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
-import { reconcileRecentOutlookMessages } from "@/utils/outlook/reconcile-recent-messages";
+import { backfillRecentOutlookMessages } from "@/utils/outlook/backfill-recent-messages";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
@@ -20,7 +20,7 @@ vi.mock("@/app/api/outlook/webhook/process-history", () => ({
   processHistoryForUser: vi.fn(),
 }));
 
-describe("reconcileRecentOutlookMessages", () => {
+describe("backfillRecentOutlookMessages", () => {
   const logger = createTestLogger();
 
   beforeEach(() => {
@@ -60,7 +60,7 @@ describe("reconcileRecentOutlookMessages", () => {
       { messageId: "existing-message" },
     ] as any);
 
-    const result = await reconcileRecentOutlookMessages({
+    const result = await backfillRecentOutlookMessages({
       emailAccountId: "email-account-id",
       emailAddress: "user@example.com",
       subscriptionId: "subscription-id",
@@ -101,7 +101,7 @@ describe("reconcileRecentOutlookMessages", () => {
       }),
     } as any);
 
-    const result = await reconcileRecentOutlookMessages({
+    const result = await backfillRecentOutlookMessages({
       emailAccountId: "email-account-id",
       emailAddress: "user@example.com",
       after: new Date("2026-04-15T00:00:00.000Z"),

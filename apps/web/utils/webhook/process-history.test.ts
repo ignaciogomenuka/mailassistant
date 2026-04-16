@@ -4,7 +4,7 @@ import prisma from "@/utils/prisma";
 import { processProviderHistory } from "@/utils/webhook/process-history";
 import { processHistoryForUser as processGoogleHistoryForUser } from "@/app/api/google/webhook/process-history";
 import { processHistoryForUser as processOutlookHistoryForUser } from "@/app/api/outlook/webhook/process-history";
-import { reconcileRecentOutlookMessages } from "@/utils/outlook/reconcile-recent-messages";
+import { backfillRecentOutlookMessages } from "@/utils/outlook/backfill-recent-messages";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma", () => ({
@@ -20,8 +20,8 @@ vi.mock("@/app/api/google/webhook/process-history", () => ({
 vi.mock("@/app/api/outlook/webhook/process-history", () => ({
   processHistoryForUser: vi.fn(),
 }));
-vi.mock("@/utils/outlook/reconcile-recent-messages", () => ({
-  reconcileRecentOutlookMessages: vi.fn(),
+vi.mock("@/utils/outlook/backfill-recent-messages", () => ({
+  backfillRecentOutlookMessages: vi.fn(),
 }));
 
 describe("processProviderHistory", () => {
@@ -35,7 +35,7 @@ describe("processProviderHistory", () => {
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       id: "email-account-id",
     } as any);
-    vi.mocked(reconcileRecentOutlookMessages).mockResolvedValue({
+    vi.mocked(backfillRecentOutlookMessages).mockResolvedValue({
       processedCount: 2,
       candidateCount: 3,
     });
@@ -47,7 +47,7 @@ describe("processProviderHistory", () => {
       logger,
     });
 
-    expect(reconcileRecentOutlookMessages).toHaveBeenCalledWith(
+    expect(backfillRecentOutlookMessages).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAccountId: "email-account-id",
         emailAddress: "user@example.com",
@@ -78,7 +78,7 @@ describe("processProviderHistory", () => {
       },
       logger,
     });
-    expect(reconcileRecentOutlookMessages).not.toHaveBeenCalled();
+    expect(backfillRecentOutlookMessages).not.toHaveBeenCalled();
   });
 
   it("keeps the Google history path unchanged", async () => {

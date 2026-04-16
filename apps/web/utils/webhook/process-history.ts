@@ -5,7 +5,7 @@ import {
 import type { Logger } from "@/utils/logger";
 import { processHistoryForUser as processGoogleHistoryForUser } from "@/app/api/google/webhook/process-history";
 import { processHistoryForUser as processOutlookHistoryForUser } from "@/app/api/outlook/webhook/process-history";
-import { reconcileRecentOutlookMessages } from "@/utils/outlook/reconcile-recent-messages";
+import { backfillRecentOutlookMessages } from "@/utils/outlook/backfill-recent-messages";
 import prisma from "@/utils/prisma";
 
 const OUTLOOK_ADMIN_RECONCILE_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -47,7 +47,7 @@ export async function processProviderHistory({
 
   if (isMicrosoftProvider(provider)) {
     if (!resourceData?.id) {
-      const result = await reconcileRecentOutlookMessages({
+      const result = await backfillRecentOutlookMessages({
         emailAccountId: await getEmailAccountIdOrThrow(emailAddress),
         emailAddress,
         subscriptionId,

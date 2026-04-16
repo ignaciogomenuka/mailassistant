@@ -7,7 +7,7 @@ import type { ParsedMessage } from "@/utils/types";
 
 const OUTLOOK_RECONCILE_PAGE_SIZE = 50;
 
-export async function reconcileRecentOutlookMessages({
+export async function backfillRecentOutlookMessages({
   emailAccountId,
   emailAddress,
   subscriptionId,

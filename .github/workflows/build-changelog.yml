@@ -1,17 +1,15 @@
-name: Build Changelog
+name: Validate Changelog
 
 on:
-  push:
+  pull_request:
     branches: [main]
     paths:
       - "docs/changelog-entries/**"
-
-permissions:
-  contents: write
-  pull-requests: write
+      - "docs/changelog.mdx"
+      - "docs/scripts/build-changelog.mjs"
 
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,14 +17,5 @@ jobs:
       - name: Build changelog.mdx from entries
         run: node docs/scripts/build-changelog.mjs
 
-      - name: Create changelog pull request
-        uses: peter-evans/create-pull-request@v7
-        with:
-          add-paths: docs/changelog.mdx
-          base: main
-          branch: automation/rebuild-changelog
-          commit-message: "docs: rebuild changelog"
-          delete-branch: true
-          title: "docs: rebuild changelog"
-          body: |
-            Automated update for the generated changelog document.
+      - name: Verify generated changelog is up to date
+        run: git diff --exit-code -- docs/changelog.mdx

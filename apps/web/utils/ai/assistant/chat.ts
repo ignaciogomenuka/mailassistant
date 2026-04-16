@@ -606,13 +606,15 @@ function getProviderSearchSyntaxPolicy(provider: string) {
   if (provider === "microsoft") {
     return `Provider search syntax:
 - Use KQL syntax for search: from:, to:, subject:, received>=YYYY-MM-DD, and keyword search.
-- If the user names a sender or brand but the actual email address is not known yet, search first, inspect the returned \`from\` values, and then refine with \`from:\` before writing when needed.
-- When the sender or domain is known, prefer \`from:\` queries over a bare keyword.
 - Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.`;
   }
 
   return `Provider search syntax:
-- Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, and older_than:.
+- Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, and older_than:.`;
+}
+
+function getSearchStrategyPolicy() {
+  return `Search strategy:
 - If the user names a sender or brand but the actual email address is not known yet, search first, inspect the returned \`from\` values, and then refine with \`from:\` before writing when needed.
 - When the sender or domain is known, prefer \`from:\` queries over a bare keyword.`;
 }
@@ -690,6 +692,7 @@ export function buildResolvedSystemPrompt({
 - Current provider: ${provider}.
 - User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}. Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from this timezone before calling calendar or inbox date-range tools.`,
     getProviderSearchSyntaxPolicy(provider),
+    getSearchStrategyPolicy(),
     getProviderInboxTriagePolicy(provider),
     `Inbox workflows:
 - For inbox updates, "what came in today?", or recent-attention requests, search first with a tight time range in the user's timezone, then summarize into must handle now, can wait, and can archive or mark read.

@@ -26,6 +26,7 @@ import {
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 const emptyInputSchema = z.object({});
+const SEARCH_INBOX_MAX_RESULTS = 20;
 const recipientListSchema = z
   .string()
   .trim()
@@ -211,8 +212,8 @@ function searchInboxInputSchema(provider: string) {
       .number()
       .int()
       .min(1)
-      .max(20)
-      .default(20)
+      .max(SEARCH_INBOX_MAX_RESULTS)
+      .default(SEARCH_INBOX_MAX_RESULTS)
       .describe("Maximum number of messages to return."),
     pageToken: z
       .string()
@@ -249,7 +250,7 @@ export const searchInboxTool = ({
         const [searchResult, labels] = await Promise.all([
           emailProvider.searchMessages({
             query,
-            maxResults: limit ?? 20,
+            maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
             pageToken: pageToken ?? undefined,
           }),
           emailProvider.getLabels().catch((error) => {
@@ -535,7 +536,7 @@ export const manageInboxTool = ({
 
   return tool({
     description:
-      "Run inbox actions on threads or senders. For emails already shown or found in this turn, prefer thread actions with threadIds. If the user says not everything from that sender, never use sender-wide cleanup. Only use sender-wide cleanup with fromEmails when the user clearly wants all mail from that sender, and get confirmation before doing broad sender-wide cleanup.",
+      "Run inbox actions on threads or senders. For emails already shown or found in this turn, prefer thread actions with threadIds. Do not widen a limited thread-level request into sender-wide cleanup. Only use sender-wide cleanup with fromEmails when the user clearly wants all mail from that sender, and get confirmation before doing broad sender-wide cleanup.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });

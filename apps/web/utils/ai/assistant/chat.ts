@@ -48,7 +48,6 @@ import {
 
 export const maxDuration = 120;
 const ASSISTANT_CHAT_MAX_STEPS = 25;
-const ASSISTANT_CHAT_TEMPERATURE = 0;
 const ASSISTANT_CHAT_REASONING_MAX_TOKENS = 100;
 
 type AssistantChatOnStepFinish = NonNullable<
@@ -305,7 +304,6 @@ export async function aiProcessAssistantChat({
     },
     onModelResolved,
     maxSteps: ASSISTANT_CHAT_MAX_STEPS,
-    temperature: ASSISTANT_CHAT_TEMPERATURE,
     tools: allTools,
   });
 
@@ -698,7 +696,7 @@ export function buildResolvedSystemPrompt({
 - Prioritize "To Reply" items as must handle. If labels are missing, infer urgency from sender, subject, and snippet.
 - For retroactive cleanup requests, use the inbox stats in context plus a search sample (up to 20 results) to understand the scale, read or unread ratio, and clutter, then recommend one next action.
 - For low-priority repeated senders, you may suggest bulk archive by sender as an option, but default to archiving the specific threads shown.
-- For requests about a small explicit set like "the two emails", "these emails", or "the emails you found", search narrowly enough to identify that set before writing. If the request names a brand or sender but not an address, use the returned \`from\` field to identify the sender first, refine if needed, and then act only on those exact threadIds. Do not add extra filters the user did not ask for.
+- For requests about a small explicitly identified set, search narrowly enough to identify that set before writing. If the request names a brand or sender but not an address, use the returned \`from\` field to identify the sender first, refine if needed, and then act only on those exact threadIds. Do not add extra filters the user did not ask for.
 - For topic-based or age-based cleanup, search first and then use thread-level actions on the matched results.
 - For all-matching cleanup, repeat searchInbox and manageInbox for each page of results until searchInbox returns hasMore=false.
 - Do not claim full completion while hasMore=true or while any matching batch still has not been handled.

@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Changelog
 
-Add changelog entries as individual files in `docs/changelog-entries/`. A GitHub Action rebuilds `docs/changelog.mdx` on merge.
+Add changelog entries as individual files in `docs/changelog-entries/`, then regenerate `docs/changelog.mdx` before opening or updating the PR.
 
 Use a single long-lived branch for changelog automation: `automation/changelog`. The automation should update the existing open changelog PR from that branch when possible instead of opening multiple concurrent changelog PRs.
 
@@ -37,6 +37,8 @@ One or two sentences about the main feature.
 
 The date is derived from the filename automatically.
 
+Do not hand-edit `docs/changelog.mdx`. Regenerate it with `node docs/scripts/build-changelog.mjs`.
+
 ## What to include
 
 - New features users can try
@@ -60,5 +62,17 @@ The date is derived from the filename automatically.
 4. Check for an existing open changelog PR from `automation/changelog` to `main`: `gh pr list --repo elie222/inbox-zero --head automation/changelog --base main --state open --json number,title,url`
 5. Create or update today's file `docs/changelog-entries/YYYY-MM-DD.mdx` with frontmatter (`description`) and markdown content
 6. If today's file already exists, merge the new updates into that file instead of creating a second entry for the same day
-7. If the open PR from `automation/changelog` exists, update that branch and PR; otherwise create it from `automation/changelog`
-8. Do **not** edit `docs/changelog.mdx` directly — a GitHub Action rebuilds it automatically after merge
+7. Regenerate `docs/changelog.mdx`: `node docs/scripts/build-changelog.mjs`
+8. Commit both `docs/changelog-entries/YYYY-MM-DD.mdx` and `docs/changelog.mdx`
+9. If the open PR from `automation/changelog` exists, update that branch and PR; otherwise create it from `automation/changelog`
+
+## Branch workflow
+
+Before making changes, reset the automation branch to the latest `main` so each run starts from a clean base:
+
+```bash
+git fetch origin
+git checkout -B automation/changelog origin/main
+```
+
+After updating the changelog files, push that branch and create or update the PR from `automation/changelog` to `main`.

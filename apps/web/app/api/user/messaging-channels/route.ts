@@ -4,7 +4,10 @@ import { withEmailAccount } from "@/utils/middleware";
 import { env } from "@/env";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 import { MessagingRoutePurpose } from "@/generated/prisma/enums";
-import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
+import {
+  isMessagingChannelOperational,
+  isOperationalSlackChannel,
+} from "@/utils/messaging/channel-validity";
 import { getMessagingRouteSummary } from "@/utils/messaging/routes";
 import { listChannels } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
@@ -111,13 +114,10 @@ async function getSlackTargetNames(
     channels.map((channel) => [channel.id, {} as Record<string, string>]),
   );
 
-  const slackChannels = channels.filter(
-    (channel) =>
-      channel.provider === "SLACK" && isMessagingChannelOperational(channel),
-  );
+  const slackChannels = channels.filter(isOperationalSlackChannel);
   const channelIdsByToken = new Map<string, string[]>();
   for (const channel of slackChannels) {
-    const accessToken = channel.accessToken!;
+    const accessToken = channel.accessToken;
     const channelIds = channelIdsByToken.get(accessToken) ?? [];
     channelIds.push(channel.id);
     channelIdsByToken.set(accessToken, channelIds);

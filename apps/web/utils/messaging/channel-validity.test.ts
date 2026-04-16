@@ -4,6 +4,8 @@ import {
   getMessagingChannelReconnectMessage,
   hasRequiredMessagingConnectionFields,
   isMessagingChannelOperational,
+  isOperationalSlackChannel,
+  isOperationalTeamsChannel,
 } from "@/utils/messaging/channel-validity";
 
 describe("messaging channel validity", () => {
@@ -70,5 +72,34 @@ describe("messaging channel validity", () => {
     expect(getMessagingChannelReconnectMessage(MessagingProvider.TEAMS)).toBe(
       "Please reconnect Teams before configuring notifications.",
     );
+  });
+
+  it("exposes provider-specific operational guards", () => {
+    expect(
+      isOperationalSlackChannel({
+        provider: MessagingProvider.SLACK,
+        isConnected: true,
+        accessToken: "xoxb-token",
+        providerUserId: "U123",
+      }),
+    ).toBe(true);
+
+    expect(
+      isOperationalSlackChannel({
+        provider: MessagingProvider.SLACK,
+        isConnected: true,
+        accessToken: null,
+        providerUserId: "U123",
+      }),
+    ).toBe(false);
+
+    expect(
+      isOperationalTeamsChannel({
+        provider: MessagingProvider.TEAMS,
+        isConnected: true,
+        accessToken: null,
+        providerUserId: "29:teams-user",
+      }),
+    ).toBe(true);
   });
 });

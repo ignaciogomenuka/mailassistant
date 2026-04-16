@@ -7,9 +7,27 @@ type MessagingChannelConnectionLike = {
   providerUserId?: string | null;
 };
 
+type MessagingChannelWithRequiredFields =
+  | (MessagingChannelConnectionLike & {
+      provider: MessagingProvider.SLACK;
+      accessToken: string;
+      providerUserId: string;
+    })
+  | (MessagingChannelConnectionLike & {
+      provider: MessagingProvider.TEAMS;
+      providerUserId: string;
+    })
+  | (MessagingChannelConnectionLike & {
+      provider: MessagingProvider.TELEGRAM;
+    });
+
+type OperationalMessagingChannel = MessagingChannelWithRequiredFields & {
+  isConnected: true;
+};
+
 export function hasRequiredMessagingConnectionFields(
   channel: MessagingChannelConnectionLike,
-) {
+): channel is MessagingChannelWithRequiredFields {
   switch (channel.provider) {
     case MessagingProvider.SLACK:
       return Boolean(channel.accessToken && channel.providerUserId);
@@ -24,10 +42,34 @@ export function hasRequiredMessagingConnectionFields(
 
 export function isMessagingChannelOperational(
   channel: MessagingChannelConnectionLike,
-) {
+): channel is OperationalMessagingChannel {
   return (
     Boolean(channel.isConnected) &&
     hasRequiredMessagingConnectionFields(channel)
+  );
+}
+
+export function isOperationalSlackChannel(
+  channel: MessagingChannelConnectionLike,
+): channel is Extract<
+  OperationalMessagingChannel,
+  { provider: MessagingProvider.SLACK }
+> {
+  return (
+    channel.provider === MessagingProvider.SLACK &&
+    isMessagingChannelOperational(channel)
+  );
+}
+
+export function isOperationalTeamsChannel(
+  channel: MessagingChannelConnectionLike,
+): channel is Extract<
+  OperationalMessagingChannel,
+  { provider: MessagingProvider.TEAMS }
+> {
+  return (
+    channel.provider === MessagingProvider.TEAMS &&
+    isMessagingChannelOperational(channel)
   );
 }
 

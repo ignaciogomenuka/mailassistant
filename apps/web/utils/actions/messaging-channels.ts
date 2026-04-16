@@ -23,6 +23,7 @@ import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code"
 import { env } from "@/env";
 import {
   getMessagingChannelReconnectMessage,
+  isOperationalSlackChannel,
   isMessagingChannelOperational,
 } from "@/utils/messaging/channel-validity";
 import {
@@ -78,14 +79,10 @@ export const updateSlackRouteAction = actionClient
         throw new SafeError("Messaging channel is not Slack");
       }
 
-      if (!isMessagingChannelOperational(channel)) {
+      if (!isOperationalSlackChannel(channel)) {
         throw new SafeError(
           getMessagingChannelReconnectMessage(channel.provider),
         );
-      }
-
-      if (!channel.accessToken) {
-        throw new SafeError("Messaging channel has no access token");
       }
 
       const target = await resolveSlackRouteTarget({

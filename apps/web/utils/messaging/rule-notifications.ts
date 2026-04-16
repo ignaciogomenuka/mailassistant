@@ -54,7 +54,10 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
-import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
+import {
+  isMessagingChannelOperational,
+  isOperationalSlackChannel,
+} from "@/utils/messaging/channel-validity";
 import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
 import { getMessagingRoute } from "@/utils/messaging/routes";
 import { getEmailUrlForOptionalMessage } from "@/utils/url";
@@ -234,8 +237,7 @@ async function sendSlackRuleNotificationWithContext({
 }): Promise<MessagingRuleNotificationResult> {
   if (
     !context.messagingChannel ||
-    !isMessagingChannelOperational(context.messagingChannel) ||
-    context.messagingChannel.provider !== MessagingProvider.SLACK
+    !isOperationalSlackChannel(context.messagingChannel)
   ) {
     logger.warn("Skipping messaging notification with inactive Slack channel", {
       executedActionId: context.id,
@@ -990,8 +992,7 @@ async function getAuthorizedSlackNotificationContext({
 
   if (
     !context?.messagingChannel ||
-    context.messagingChannel.provider !== MessagingProvider.SLACK ||
-    !isMessagingChannelOperational(context.messagingChannel)
+    !isOperationalSlackChannel(context.messagingChannel)
   ) {
     if (event) {
       await postNotificationFeedback({
@@ -1709,7 +1710,7 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
     switch (context.messagingChannel.provider) {
       case MessagingProvider.SLACK: {
         const destinationChannelId = await resolveSlackRouteDestination({
-          accessToken: context.messagingChannel.accessToken!,
+          accessToken: context.messagingChannel.accessToken,
           route,
         });
 
@@ -1725,7 +1726,7 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
         }
 
         await createSlackClient(
-          context.messagingChannel.accessToken!,
+          context.messagingChannel.accessToken,
         ).chat.update(
           disableSlackLinkUnfurls({
             channel: destinationChannelId,

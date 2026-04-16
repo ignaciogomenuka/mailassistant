@@ -15,12 +15,7 @@ const IV_LENGTH = 16; // 16 bytes for AES GCM
 const AUTH_TAG_LENGTH = 16; // 16 bytes for authentication tag
 const KEY_LENGTH = 32; // 32 bytes for AES-256
 
-// Derive encryption key from environment variables
-const key = scryptSync(
-  env.EMAIL_ENCRYPT_SECRET,
-  env.EMAIL_ENCRYPT_SALT,
-  KEY_LENGTH,
-);
+let key: Buffer | null = null;
 
 /**
  * Encrypts a string using AES-256-GCM
@@ -33,7 +28,7 @@ export function encryptToken(text: string | null): string | null {
     // Generate a random IV for each encryption
     const iv = randomBytes(IV_LENGTH);
 
-    const cipher = createCipheriv(ALGORITHM, key, iv);
+    const cipher = createCipheriv(ALGORITHM, getEncryptionKey(), iv);
     const encrypted = Buffer.concat([
       cipher.update(text, "utf8"),
       cipher.final(),
@@ -69,7 +64,7 @@ export function decryptToken(encryptedText: string | null): string | null {
     // Extract encrypted content (remaining bytes)
     const encrypted = buffer.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
 
-    const decipher = createDecipheriv(ALGORITHM, key, iv);
+    const decipher = createDecipheriv(ALGORITHM, getEncryptionKey(), iv);
     decipher.setAuthTag(authTag);
 
     const decrypted = Buffer.concat([
@@ -82,4 +77,20 @@ export function decryptToken(encryptedText: string | null): string | null {
     logger.error("Decryption failed", { error });
     return null;
   }
+}
+
+function getEncryptionKey() {
+  if (key) return key;
+
+  if (!env.EMAIL_ENCRYPT_SECRET || !env.EMAIL_ENCRYPT_SALT) {
+    throw new Error("Encryption environment variables are not configured");
+  }
+
+  key = scryptSync(
+    env.EMAIL_ENCRYPT_SECRET,
+    env.EMAIL_ENCRYPT_SALT,
+    KEY_LENGTH,
+  );
+
+  return key;
 }

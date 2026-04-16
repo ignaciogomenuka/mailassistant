@@ -195,9 +195,5 @@ function buildCategoryNotFoundMessage({
 }) {
   const categoryList = [...availableCategories, UNCATEGORIZED_CATEGORY_NAME];
 
-  if (!categoryList.length) {
-    return `Category "${categoryName}" was not found and this account has no categories yet.`;
-  }
-
   return `Category "${categoryName}" was not found. Available categories: ${categoryList.join(", ")}.`;
 }

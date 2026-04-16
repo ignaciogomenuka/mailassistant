@@ -662,14 +662,14 @@ function getToolFailureMessage(output: unknown): string | null {
 
   const record = output as Record<string, unknown>;
   if (isOutputWithError(output)) {
-    return toFailureMessage(record.error);
+    return toMessageString(record.error);
   }
 
   if (record.success === false) {
     return (
-      toFailureMessage(record.message) ??
-      toFailureMessage(record.reason) ??
-      toFailureMessage(record.error) ??
+      toMessageString(record.message) ??
+      toMessageString(record.reason) ??
+      toMessageString(record.error) ??
       "Operation failed"
     );
   }
@@ -679,10 +679,10 @@ function getToolFailureMessage(output: unknown): string | null {
 
 function getToolSuccessMessage(output: unknown): string | null {
   if (typeof output !== "object" || output === null) return null;
-  return toFailureMessage((output as Record<string, unknown>).message);
+  return toMessageString((output as Record<string, unknown>).message);
 }
 
-function toFailureMessage(value: unknown): string | null {
+function toMessageString(value: unknown): string | null {
   if (typeof value === "string" && value.trim().length > 0) return value;
   if (
     typeof value === "object" &&

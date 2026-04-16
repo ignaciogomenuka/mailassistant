@@ -14,6 +14,7 @@ import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-ad
 import { runWithBoundedConcurrency } from "@/utils/async";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
+import { sleep } from "@/utils/sleep";
 import { archiveCategory } from "@/utils/categorize/senders/archive-category";
 import { getCategoryOverview } from "@/utils/categorize/senders/get-category-overview";
 import { startBulkCategorization } from "@/utils/categorize/senders/start-bulk-categorization";
@@ -1495,10 +1496,6 @@ function hasOnlyValidRecipients(recipientList: string) {
   return recipients.every((recipient) =>
     Boolean(extractEmailAddress(recipient)),
   );
-}
-
-function sleep(waitMs: number) {
-  return new Promise((resolve) => setTimeout(resolve, waitMs));
 }
 
 function normalizeSenderEmails(fromEmails: string[]) {

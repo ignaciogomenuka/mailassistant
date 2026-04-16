@@ -12,6 +12,7 @@ import {
 } from "@/utils/actions/messaging-channels";
 import {
   getChannelInfo,
+  listChannels,
   listPrivateChannelsForUser,
 } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
@@ -26,6 +27,7 @@ vi.mock("@/utils/auth", () => ({
 }));
 vi.mock("@/utils/messaging/providers/slack/channels", () => ({
   getChannelInfo: vi.fn(),
+  listChannels: vi.fn(),
   listPrivateChannelsForUser: vi.fn(),
 }));
 vi.mock("@/utils/messaging/providers/slack/client", () => ({
@@ -269,6 +271,35 @@ describe("updateSlackRouteAction", () => {
     );
     expect(prisma.messagingRoute.upsert).not.toHaveBeenCalled();
     expect(sendChannelConfirmation).not.toHaveBeenCalled();
+  });
+
+  it("rejects private Slack channels when the Slack user id is missing", async () => {
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      provider: "SLACK",
+      isConnected: true,
+      accessToken: "xoxb-token",
+      providerUserId: null,
+      botUserId: "B123",
+    } as any);
+    vi.mocked(createSlackClient).mockReturnValue({} as never);
+    vi.mocked(getChannelInfo).mockResolvedValue({
+      id: "C123",
+      name: "private-alerts",
+      isPrivate: true,
+    });
+
+    const result = await updateSlackRouteAction("email-account-1" as any, {
+      channelId: "channel-1",
+      purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+      targetId: "C123",
+    });
+
+    expect(result?.serverError).toBe(
+      "Please reconnect Slack before selecting a private channel.",
+    );
+    expect(listChannels).not.toHaveBeenCalled();
+    expect(listPrivateChannelsForUser).not.toHaveBeenCalled();
+    expect(prisma.messagingRoute.upsert).not.toHaveBeenCalled();
   });
 });
 

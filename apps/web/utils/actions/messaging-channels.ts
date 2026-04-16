@@ -508,23 +508,30 @@ async function resolveSlackRouteTarget({
     );
   }
 
-  if (providerUserId) {
-    const availablePrivateChannels = await listPrivateChannelsForUser(
-      client,
-      providerUserId,
+  if (!providerUserId) {
+    logger.error("Slack channel target cannot be validated without user id", {
+      targetId,
+    });
+    throw new SafeError(
+      "Please reconnect Slack before selecting a private channel.",
     );
-    const isAvailableToUser = availablePrivateChannels.some(
-      (channel) => channel.id === targetId,
-    );
+  }
 
-    if (!isAvailableToUser) {
-      logger.error("Slack channel target is unavailable to user", {
-        targetId,
-      });
-      throw new SafeError(
-        "Only private channels you are a member of are allowed. Please select one of your private channels.",
-      );
-    }
+  const availablePrivateChannels = await listPrivateChannelsForUser(
+    client,
+    providerUserId,
+  );
+  const isAvailableToUser = availablePrivateChannels.some(
+    (channel) => channel.id === targetId,
+  );
+
+  if (!isAvailableToUser) {
+    logger.error("Slack channel target is unavailable to user", {
+      targetId,
+    });
+    throw new SafeError(
+      "Only private channels you are a member of are allowed. Please select one of your private channels.",
+    );
   }
 
   return {

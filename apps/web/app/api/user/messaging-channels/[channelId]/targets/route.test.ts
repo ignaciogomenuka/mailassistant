@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { RequestWithEmailAccount } from "@/utils/middleware";
-import { listPrivateChannelsForUser } from "@/utils/messaging/providers/slack/channels";
+import {
+  listChannels,
+  listPrivateChannelsForUser,
+} from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 
 vi.mock("@/utils/prisma");
@@ -11,6 +14,7 @@ vi.mock("@/utils/middleware", () => ({
   withEmailAccount: (_name: string, handler: unknown) => handler,
 }));
 vi.mock("@/utils/messaging/providers/slack/channels", () => ({
+  listChannels: vi.fn(),
   listPrivateChannelsForUser: vi.fn(),
 }));
 vi.mock("@/utils/messaging/providers/slack/client", () => ({
@@ -55,6 +59,43 @@ describe("GET /api/user/messaging-channels/[channelId]/targets", () => {
         {
           id: "C234",
           name: "finance-alerts",
+          isPrivate: true,
+        },
+      ],
+    });
+  });
+
+  it("falls back to private Slack channels for legacy connections without a user id", async () => {
+    prisma.messagingChannel.findFirst.mockResolvedValue({
+      provider: "SLACK",
+      accessToken: "xoxb-token",
+      providerUserId: null,
+    } as any);
+    vi.mocked(createSlackClient).mockReturnValue({} as never);
+    vi.mocked(listChannels).mockResolvedValue([
+      {
+        id: "C111",
+        name: "public-updates",
+        isPrivate: false,
+      },
+      {
+        id: "C222",
+        name: "legacy-private",
+        isPrivate: true,
+      },
+    ]);
+
+    const response = await GET(createRequest("email-account-1"), {
+      params: Promise.resolve({ channelId: "channel-1" }),
+    });
+    const body = await response.json();
+
+    expect(listPrivateChannelsForUser).not.toHaveBeenCalled();
+    expect(body).toEqual({
+      targets: [
+        {
+          id: "C222",
+          name: "legacy-private",
           isPrivate: true,
         },
       ],

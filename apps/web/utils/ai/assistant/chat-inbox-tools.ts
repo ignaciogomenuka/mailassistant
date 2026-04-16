@@ -25,8 +25,8 @@ import {
 } from "@/utils/senders/unsubscribe";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
-const emptyInputSchema = z.object({});
 const SEARCH_INBOX_MAX_RESULTS = 20;
+
 const recipientListSchema = z
   .string()
   .trim()
@@ -114,7 +114,7 @@ export const getAccountOverviewTool = ({
   tool({
     description:
       "Get account context for inbox operations such as provider details, label availability, meeting-brief settings, and attachment-filing settings.",
-    inputSchema: emptyInputSchema,
+    inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({ tool: "get_account_overview", email, logger });
       try {

@@ -17,6 +17,7 @@ import {
   ForwardEmailResult,
   getManageInboxActionLabel,
   ManageInboxResult,
+  ManageSenderCategoryResult,
   ReadEmailResult,
   ReplyEmailResult,
   SearchInboxResult,
@@ -533,6 +534,72 @@ export function MessagePart({
     });
   }
 
+  if (part.type === "tool-getSenderCategoryOverview") {
+    return renderToolStatus({
+      part,
+      loadingText: "Checking sender categories...",
+      renderSuccess: ({ toolCallId, output }) => (
+        <BasicToolInfo
+          key={toolCallId}
+          text={getSenderCategoryOverviewSuccessText(output)}
+        />
+      ),
+    });
+  }
+
+  if (part.type === "tool-startSenderCategorization") {
+    return renderToolStatus({
+      part,
+      loadingText: "Starting sender categorization...",
+      renderSuccess: ({ toolCallId, output }) => (
+        <BasicToolInfo
+          key={toolCallId}
+          text={getStartSenderCategorizationSuccessText(output)}
+        />
+      ),
+    });
+  }
+
+  if (part.type === "tool-getSenderCategorizationStatus") {
+    return renderToolStatus({
+      part,
+      loadingText: "Checking categorization progress...",
+      renderSuccess: ({ toolCallId, output }) => (
+        <BasicToolInfo
+          key={toolCallId}
+          text={getSenderCategorizationStatusSuccessText(output)}
+        />
+      ),
+    });
+  }
+
+  if (part.type === "tool-manageSenderCategory") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      const categoryName = part.input.categoryName?.trim();
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={
+            categoryName
+              ? `Archiving "${categoryName}" category...`
+              : "Archiving category..."
+          }
+        />
+      );
+    }
+    if (state === "output-available") {
+      const failureMessage = getToolFailureMessage(part.output);
+      if (failureMessage) {
+        return <ErrorToolCard key={toolCallId} error={failureMessage} />;
+      }
+      return (
+        <ManageSenderCategoryResult key={toolCallId} output={part.output} />
+      );
+    }
+    return null;
+  }
+
   if (part.type.startsWith("tool-")) {
     const toolPart = part as {
       type: `tool-${string}`;
@@ -680,6 +747,61 @@ function getToolFailureMessage(output: unknown): string | null {
 function getToolSuccessMessage(output: unknown): string | null {
   if (typeof output !== "object" || output === null) return null;
   return toMessageString((output as Record<string, unknown>).message);
+}
+
+function pluralize(count: number, singular: string, plural: string) {
+  return count === 1 ? singular : plural;
+}
+
+function getSenderCategoryOverviewSuccessText(output: unknown): string {
+  const categories = getOutputField<Array<unknown>>(output, "categories");
+  const categoryCount = Array.isArray(categories) ? categories.length : 0;
+  const uncategorized =
+    getOutputField<number>(output, "uncategorizedSenderCount") ?? 0;
+
+  if (categoryCount === 0 && uncategorized === 0) {
+    return "No sender categories yet";
+  }
+
+  const parts: string[] = [];
+  if (categoryCount > 0) {
+    parts.push(
+      `${categoryCount} ${pluralize(categoryCount, "category", "categories")}`,
+    );
+  }
+  if (uncategorized > 0) {
+    parts.push(
+      `${uncategorized} uncategorized ${pluralize(uncategorized, "sender", "senders")}`,
+    );
+  }
+  return `Found ${parts.join(", ")}`;
+}
+
+function getStartSenderCategorizationSuccessText(output: unknown): string {
+  const alreadyRunning = getOutputField<boolean>(output, "alreadyRunning");
+  const totalQueued = getOutputField<number>(output, "totalQueuedSenders") ?? 0;
+
+  if (alreadyRunning) {
+    return "Sender categorization already in progress";
+  }
+  if (totalQueued > 0) {
+    return `Categorizing ${totalQueued} ${pluralize(totalQueued, "sender", "senders")}`;
+  }
+  return "Sender categorization started";
+}
+
+function getSenderCategorizationStatusSuccessText(output: unknown): string {
+  const status = getOutputField<string>(output, "status");
+  const total = getOutputField<number>(output, "totalItems") ?? 0;
+  const completed = getOutputField<number>(output, "completedItems") ?? 0;
+
+  if (status === "completed") {
+    return "Categorization complete";
+  }
+  if (status === "running") {
+    return `Categorizing senders (${completed} of ${total})`;
+  }
+  return "Categorization hasn't started";
 }
 
 function toMessageString(value: unknown): string | null {

@@ -13,6 +13,7 @@ import {
   UpdatedLearnedPatterns,
   ForwardEmailResult,
   ManageInboxResult,
+  ManageSenderCategoryResult,
   ReadEmailResult,
   ReplyEmailResult,
   SearchInboxResult,
@@ -357,6 +358,74 @@ export default function ToolsPage() {
           />
         </section>
 
+        {/* Sender Category Results */}
+        <section className="space-y-4">
+          <SectionHeader>Sender Category Results</SectionHeader>
+
+          <MutedText>Archived with sample senders:</MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: "cat-1", name: "Newsletters" },
+              sendersCount: 4,
+              sampleSenders: [
+                "updates@example.com",
+                "news@example.com",
+                "digest@example.com",
+                "weekly@example.com",
+              ],
+              message: 'Archived mail from 4 senders in "Newsletters".',
+            }}
+          />
+
+          <MutedText>Archived with overflow ("+ N more"):</MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: "cat-2", name: "Promotions" },
+              sendersCount: 27,
+              sampleSenders: [
+                "deals@example.com",
+                "sale@example.com",
+                "offers@example.com",
+                "promo@example.com",
+                "marketing@example.com",
+              ],
+              message: 'Archived mail from 27 senders in "Promotions".',
+            }}
+          />
+
+          <MutedText>Uncategorized senders:</MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: null, name: "Uncategorized" },
+              sendersCount: 8,
+              sampleSenders: [
+                "random@example.com",
+                "other@example.com",
+                "misc@example.com",
+              ],
+              message: 'Archived mail from 8 senders in "Uncategorized".',
+            }}
+          />
+
+          <MutedText>Empty category (no senders):</MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: "cat-3", name: "Receipts" },
+              sendersCount: 0,
+              sampleSenders: [],
+              message: 'No senders are currently assigned to "Receipts".',
+            }}
+          />
+        </section>
+
         {/* Settings & Knowledge */}
         <section className="space-y-4">
           <SectionHeader>Settings & Knowledge</SectionHeader>
@@ -408,6 +477,10 @@ export default function ToolsPage() {
             <BasicToolInfo text="Adding to knowledge base..." />
             <BasicToolInfo text="Saving memory..." />
             <BasicToolInfo text="Searching memories..." />
+            <BasicToolInfo text="Checking sender categories..." />
+            <BasicToolInfo text="Starting sender categorization..." />
+            <BasicToolInfo text="Checking categorization progress..." />
+            <BasicToolInfo text='Archiving "Newsletters" category...' />
           </div>
 
           <MutedText>Output states (completion messages):</MutedText>
@@ -420,6 +493,12 @@ export default function ToolsPage() {
             <BasicToolInfo text="Read learned patterns" />
             <BasicToolInfo text="Memory saved" />
             <BasicToolInfo text="Found 2 memories" />
+            <BasicToolInfo text="Found 5 categories, 12 uncategorized senders" />
+            <BasicToolInfo text="Categorizing 43 senders" />
+            <BasicToolInfo text="Sender categorization already in progress" />
+            <BasicToolInfo text="Categorizing senders (12 of 43)" />
+            <BasicToolInfo text="Categorization complete" />
+            <BasicToolInfo text="Categorization hasn't started" />
           </div>
         </section>
       </div>

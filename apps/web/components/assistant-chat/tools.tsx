@@ -311,6 +311,68 @@ export function ManageInboxResult({
   );
 }
 
+export function ManageSenderCategoryResult({ output }: { output: unknown }) {
+  const { provider, userEmail } = useAccount();
+  const category = getOutputField<{ id: string | null; name: string }>(
+    output,
+    "category",
+  );
+  const sendersCount = getOutputField<number>(output, "sendersCount") ?? 0;
+  const sampleSenders = getOutputField<string[]>(output, "sampleSenders") ?? [];
+  const categoryName = category?.name?.trim() || "Category";
+  const title =
+    sendersCount > 0
+      ? `Archived "${categoryName}" category`
+      : `"${categoryName}" category had no senders`;
+  const hiddenCount = Math.max(sendersCount - sampleSenders.length, 0);
+
+  return (
+    <CollapsibleToolCard
+      title={title}
+      badge={
+        sendersCount > 0 ? (
+          <Badge color="green" className="text-[10px]">
+            {sendersCount} sender{sendersCount === 1 ? "" : "s"}
+          </Badge>
+        ) : undefined
+      }
+    >
+      {sampleSenders.length > 0 && (
+        <ToolSection label={hiddenCount > 0 ? "Sample senders" : "Senders"}>
+          <div className="space-y-2">
+            {sampleSenders.map((sender) => (
+              <ToolPanel
+                key={sender}
+                className="flex items-center justify-between gap-3"
+              >
+                <span className="min-w-0 truncate text-sm text-foreground">
+                  {sender}
+                </span>
+                <a
+                  href={getEmailSearchUrl(sender, userEmail, provider)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                  aria-label={`View ${sender} in ${
+                    provider === "microsoft" ? "Outlook" : "Gmail"
+                  }`}
+                >
+                  <ExternalLinkIcon className="size-3.5" />
+                </a>
+              </ToolPanel>
+            ))}
+            {hiddenCount > 0 && (
+              <div className="text-xs text-muted-foreground">
+                + {hiddenCount} more sender{hiddenCount === 1 ? "" : "s"}
+              </div>
+            )}
+          </div>
+        </ToolSection>
+      )}
+    </CollapsibleToolCard>
+  );
+}
+
 type PendingEmailActionType = "send_email" | "reply_email" | "forward_email";
 
 type EmailConfirmationResult = {

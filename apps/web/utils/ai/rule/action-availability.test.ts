@@ -76,7 +76,7 @@ describe("getExtraAvailableActionsForRuleEditor", () => {
     mockEnv.webhookActionsEnabled = true;
   });
 
-  it("hides webhook actions for existing rules when the feature is disabled", () => {
+  it("hides webhook actions when the feature is disabled", () => {
     mockEnv.webhookActionsEnabled = false;
 
     const actions = getExtraAvailableActionsForRuleEditor();
@@ -84,11 +84,11 @@ describe("getExtraAvailableActionsForRuleEditor", () => {
     expect(actions).not.toContain(ActionType.CALL_WEBHOOK);
   });
 
-  it("hides webhook actions for new rules when the feature is disabled", () => {
-    mockEnv.webhookActionsEnabled = false;
+  it("includes webhook actions when the feature is enabled", () => {
+    mockEnv.webhookActionsEnabled = true;
 
     const actions = getExtraAvailableActionsForRuleEditor();
 
-    expect(actions).not.toContain(ActionType.CALL_WEBHOOK);
+    expect(actions).toContain(ActionType.CALL_WEBHOOK);
   });
 });

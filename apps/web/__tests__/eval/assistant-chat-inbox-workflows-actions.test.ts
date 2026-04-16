@@ -166,7 +166,11 @@ describe.runIf(shouldRunEval)(
               !!searchCall &&
               !!searchJudge?.pass &&
               hasSearchBeforeFirstWrite(toolCalls) &&
-              toolCalls.some((toolCall) => toolCall.toolName === "manageInbox");
+              toolCalls.some(
+                (toolCall) =>
+                  toolCall.toolName === "manageInbox" &&
+                  isBulkArchiveSendersInput(toolCall.input),
+              );
 
             evalReporter.record({
               testName: `explicit sender cleanup executes after search (${label})`,

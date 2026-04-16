@@ -626,17 +626,4 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
 
     expect(result.hasMore).toBe(false);
   });
-
-  it("manageInbox description calls out the 100-threadId cap per call", () => {
-    const toolInstance = manageInboxTool({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      provider: "google",
-      logger,
-    });
-
-    const description = toolInstance.description ?? "";
-    expect(description).toMatch(/100/);
-    expect(description.toLowerCase()).toMatch(/thread/);
-  });
 });

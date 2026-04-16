@@ -85,9 +85,17 @@ export const updateSlackRouteAction = actionClient
         );
       }
 
+      const accessToken = channel.accessToken;
+      const providerUserId = channel.providerUserId;
+      if (!accessToken || !providerUserId) {
+        throw new SafeError(
+          getMessagingChannelReconnectMessage(channel.provider),
+        );
+      }
+
       const target = await resolveSlackRouteTarget({
-        accessToken: channel.accessToken,
-        providerUserId: channel.providerUserId,
+        accessToken,
+        providerUserId,
         targetId,
         logger,
       });
@@ -113,7 +121,7 @@ export const updateSlackRouteAction = actionClient
       ) {
         try {
           await sendChannelConfirmation({
-            accessToken: channel.accessToken,
+            accessToken,
             channelId: target.targetId,
             botUserId: channel.botUserId,
           });

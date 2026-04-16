@@ -9,16 +9,16 @@ type MessagingChannelConnectionLike = {
 
 type MessagingChannelWithRequiredFields =
   | (MessagingChannelConnectionLike & {
-      provider: MessagingProvider.SLACK;
+      provider: "SLACK";
       accessToken: string;
       providerUserId: string;
     })
   | (MessagingChannelConnectionLike & {
-      provider: MessagingProvider.TEAMS;
+      provider: "TEAMS";
       providerUserId: string;
     })
   | (MessagingChannelConnectionLike & {
-      provider: MessagingProvider.TELEGRAM;
+      provider: "TELEGRAM";
     });
 
 type OperationalMessagingChannel = MessagingChannelWithRequiredFields & {
@@ -51,10 +51,7 @@ export function isMessagingChannelOperational(
 
 export function isOperationalSlackChannel(
   channel: MessagingChannelConnectionLike,
-): channel is Extract<
-  OperationalMessagingChannel,
-  { provider: MessagingProvider.SLACK }
-> {
+): channel is Extract<OperationalMessagingChannel, { provider: "SLACK" }> {
   return (
     channel.provider === MessagingProvider.SLACK &&
     isMessagingChannelOperational(channel)
@@ -63,10 +60,7 @@ export function isOperationalSlackChannel(
 
 export function isOperationalTeamsChannel(
   channel: MessagingChannelConnectionLike,
-): channel is Extract<
-  OperationalMessagingChannel,
-  { provider: MessagingProvider.TEAMS }
-> {
+): channel is Extract<OperationalMessagingChannel, { provider: "TEAMS" }> {
   return (
     channel.provider === MessagingProvider.TEAMS &&
     isMessagingChannelOperational(channel)

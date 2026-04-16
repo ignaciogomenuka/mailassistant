@@ -203,10 +203,22 @@ export function RuleForm({
       // Add DIGEST action if digest is enabled
       const actionsToSubmit = [...normalizedActions];
       if (data.digest) {
-        actionsToSubmit.push({ type: ActionType.DIGEST });
+        const existingDigestAction = rule.actions.find(
+          (action) => action.type === ActionType.DIGEST,
+        );
+
+        actionsToSubmit.push({
+          id: existingDigestAction?.id,
+          type: ActionType.DIGEST,
+        });
       }
 
       if (data.id) {
+        const orderedActionsToSubmit = restorePersistedActionSequence({
+          actions: actionsToSubmit,
+          originalActions: rule.actions,
+        });
+
         if (mutate) {
           // mutate delayInMinutes optimistically to keep the UI consistent
           // in case the modal is reopened immediately after saving
@@ -224,7 +236,7 @@ export function RuleForm({
 
         const res = await updateRuleAction(emailAccountId, {
           ...data,
-          actions: actionsToSubmit,
+          actions: orderedActionsToSubmit,
           id: data.id,
         });
 
@@ -252,7 +264,7 @@ export function RuleForm({
           if (mutate) mutate();
           posthog.capture("User updated AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
-            actions: actionsToSubmit.map((action) => action.type),
+            actions: orderedActionsToSubmit.map((action) => action.type),
             runOnThreads: data.runOnThreads,
             digest: data.digest,
           });
@@ -652,6 +664,43 @@ function allowMultipleConditions(systemType: SystemType | null | undefined) {
     systemType !== SystemType.COLD_EMAIL &&
     !isConversationStatusType(systemType)
   );
+}
+
+function restorePersistedActionSequence({
+  actions,
+  originalActions,
+}: {
+  actions: CreateRuleBody["actions"];
+  originalActions: CreateRuleBody["actions"];
+}) {
+  const originalIndexById = new Map(
+    originalActions.flatMap((action, index) =>
+      action.id ? [[action.id, index] as const] : [],
+    ),
+  );
+
+  if (originalIndexById.size === 0) return actions;
+
+  const existing: CreateRuleBody["actions"] = [];
+  const added: CreateRuleBody["actions"] = [];
+
+  for (const action of actions) {
+    if (action.id && originalIndexById.has(action.id)) {
+      existing.push(action);
+    } else {
+      added.push(action);
+    }
+  }
+
+  if (existing.length === 0) return actions;
+
+  existing.sort(
+    (a, b) =>
+      (originalIndexById.get(a.id ?? "") ?? 0) -
+      (originalIndexById.get(b.id ?? "") ?? 0),
+  );
+
+  return [...existing, ...added];
 }
 
 type ActionTypeOption = {

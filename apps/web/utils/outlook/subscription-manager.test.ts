@@ -197,7 +197,6 @@ describe("OutlookSubscriptionManager", () => {
 
       vi.useRealTimers();
     });
-
     it("should force refresh a valid subscription when requested", async () => {
       vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
         watchEmailsSubscriptionId: "current-subscription-id",

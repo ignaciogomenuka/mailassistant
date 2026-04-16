@@ -246,25 +246,24 @@ export const searchInboxTool = ({
           logger,
         });
 
-        const effectiveLimit = limit ?? 20;
-        const { messages, nextPageToken } = await emailProvider.searchMessages({
-          query,
-          maxResults: effectiveLimit,
-          pageToken: pageToken ?? undefined,
-        });
+        const [searchResult, labels] = await Promise.all([
+          emailProvider.searchMessages({
+            query,
+            maxResults: limit ?? 20,
+            pageToken: pageToken ?? undefined,
+          }),
+          emailProvider.getLabels().catch((error) => {
+            logger.warn("Failed to load labels for search results", { error });
+            return [] as Array<{ id: string; name: string }>;
+          }),
+        ]);
 
-        let labels: Array<{ id: string; name: string }> = [];
-        try {
-          labels = await emailProvider.getLabels();
-        } catch (error) {
-          logger.warn("Failed to load labels for search results", { error });
-        }
-
+        const { messages, nextPageToken } = searchResult;
         const labelsById = createLabelLookupMap(labels);
 
-        const items = messages
-          .slice(0, effectiveLimit)
-          .map((message) => mapMessageForSearchResult(message, labelsById));
+        const items = messages.map((message) =>
+          mapMessageForSearchResult(message, labelsById),
+        );
 
         return {
           queryUsed: query,

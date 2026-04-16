@@ -95,29 +95,34 @@ async function processNotificationsAsync(
   log: Logger,
 ) {
   for (const notification of notifications) {
-    if (notification.lifecycleEvent) {
-      await processOutlookLifecycleNotification({
-        notification,
-        logger: log,
-      });
-      continue;
-    }
-
-    if (!notification.resourceData) {
-      log.warn("Skipping Outlook notification without resource data", {
-        subscriptionId: notification.subscriptionId,
-      });
-      continue;
-    }
-
-    const { subscriptionId, resourceData } = notification;
-    const logger = log.with({ subscriptionId, messageId: resourceData.id });
-
-    logger.info("Processing notification", {
-      changeType: notification.changeType,
+    const { subscriptionId } = notification;
+    const logger = log.with({
+      subscriptionId,
+      ...(notification.resourceData?.id
+        ? { messageId: notification.resourceData.id }
+        : {}),
     });
 
     try {
+      if (notification.lifecycleEvent) {
+        await processOutlookLifecycleNotification({
+          notification,
+          logger,
+        });
+        continue;
+      }
+
+      if (!notification.resourceData) {
+        logger.warn("Skipping Outlook notification without resource data");
+        continue;
+      }
+
+      const { resourceData } = notification;
+
+      logger.info("Processing notification", {
+        changeType: notification.changeType,
+      });
+
       await processHistoryForUser({
         subscriptionId,
         resourceData,

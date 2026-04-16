@@ -11,8 +11,6 @@ import { getStripe } from "@/ee/billing/stripe";
 import { createEmailProvider } from "@/utils/email/provider";
 import { processProviderHistory } from "@/utils/webhook/process-history";
 import { hash } from "@/utils/hash";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
-import { reconcileRecentOutlookMessages } from "@/utils/outlook/reconcile-recent-messages";
 import {
   hashEmailBody,
   convertGmailUrlBody,
@@ -71,36 +69,18 @@ export const adminProcessHistoryAction = adminActionClient
         startHistoryId,
       });
 
-      if (isMicrosoftProvider(provider) && !historyId && !startHistoryId) {
-        const result = await reconcileRecentOutlookMessages({
-          emailAccountId: emailAccount.id,
-          emailAddress: emailAccount.email,
-          subscriptionId: emailAccount.watchEmailsSubscriptionId || undefined,
-          after: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-          maxMessages: 100,
-          logger,
-        });
-
-        logger.info("Finished admin process history", {
-          emailAccountId: emailAccount.id,
-          provider,
-          processedCount: result.processedCount,
-          candidateCount: result.candidateCount,
-        });
-
-        return;
-      }
-
       await processProviderHistory({
         provider,
         emailAddress: normalizedEmailAddress,
         historyId,
         startHistoryId,
         subscriptionId: emailAccount.watchEmailsSubscriptionId || undefined,
-        resourceData: {
-          id: historyId?.toString() || "0",
-          conversationId: startHistoryId?.toString(),
-        },
+        resourceData: historyId
+          ? {
+              id: historyId.toString(),
+              conversationId: startHistoryId?.toString(),
+            }
+          : undefined,
         logger,
       });
 

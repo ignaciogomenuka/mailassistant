@@ -28,11 +28,12 @@ export class OutlookSubscriptionManager {
     this.logger = logger.with({ emailAccountId });
   }
 
-  async createSubscription(): Promise<{
+  async createSubscription(options?: { forceRefresh?: boolean }): Promise<{
     expirationDate: Date;
     subscriptionId?: string;
     changed: boolean;
   } | null> {
+    const forceRefresh = options?.forceRefresh === true;
     try {
       // Check if we already have a valid subscription and reuse it when possible
       const existing = await this.getExistingSubscription();
@@ -43,6 +44,7 @@ export class OutlookSubscriptionManager {
           new Date(existing.expirationDate).getTime() - now.getTime();
 
         if (
+          !forceRefresh &&
           timeUntilExpiry > OUTLOOK_SUBSCRIPTION_RENEWAL_THRESHOLD_MS &&
           !shouldRenewAgedSubscription(existing.expirationDate, now)
         ) {
@@ -57,7 +59,14 @@ export class OutlookSubscriptionManager {
           };
         }
 
-        if (timeUntilExpiry <= OUTLOOK_SUBSCRIPTION_RENEWAL_THRESHOLD_MS) {
+        if (forceRefresh) {
+          this.logger.info("Existing subscription explicitly refreshing", {
+            subscriptionId: existing.subscriptionId,
+            expirationDate: existing.expirationDate,
+          });
+        } else if (
+          timeUntilExpiry <= OUTLOOK_SUBSCRIPTION_RENEWAL_THRESHOLD_MS
+        ) {
           this.logger.info("Existing subscription near expiry; renewing", {
             subscriptionId: existing.subscriptionId,
             expirationDate: existing.expirationDate,
@@ -101,6 +110,42 @@ export class OutlookSubscriptionManager {
    */
   async ensureSubscription(): Promise<Date | null> {
     const result = await this.createSubscription();
+    if (!result?.subscriptionId) return null;
+
+    if (result.changed) {
+      try {
+        await this.updateSubscriptionInDatabase({
+          expirationDate: result.expirationDate,
+          subscriptionId: result.subscriptionId,
+        });
+      } catch (error) {
+        this.logger.error("Failed to save subscription to database", {
+          subscriptionId: result.subscriptionId,
+          error,
+        });
+
+        try {
+          await this.client.unwatchEmails(result.subscriptionId);
+          this.logger.info("Canceled orphaned subscription after DB failure", {
+            subscriptionId: result.subscriptionId,
+          });
+        } catch (cancelError) {
+          this.logger.error("Failed to cancel orphaned subscription", {
+            subscriptionId: result.subscriptionId,
+            error: cancelError,
+          });
+        }
+
+        captureException(error, { emailAccountId: this.emailAccountId });
+        return null;
+      }
+    }
+
+    return result.expirationDate;
+  }
+
+  async refreshSubscription(): Promise<Date | null> {
+    const result = await this.createSubscription({ forceRefresh: true });
     if (!result?.subscriptionId) return null;
 
     if (result.changed) {
@@ -309,9 +354,11 @@ function shouldRenewAgedSubscription(expirationDate: Date, now: Date) {
 export async function createManagedOutlookSubscription({
   emailAccountId,
   logger,
+  forceRefresh,
 }: {
   emailAccountId: string;
   logger: Logger;
+  forceRefresh?: boolean;
 }): Promise<Date | null> {
   const provider = await createEmailProvider({
     emailAccountId,
@@ -324,5 +371,7 @@ export async function createManagedOutlookSubscription({
     logger,
   );
 
-  return await manager.ensureSubscription();
+  return forceRefresh
+    ? await manager.refreshSubscription()
+    : await manager.ensureSubscription();
 }

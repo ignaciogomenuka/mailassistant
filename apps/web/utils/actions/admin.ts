@@ -11,6 +11,8 @@ import { getStripe } from "@/ee/billing/stripe";
 import { createEmailProvider } from "@/utils/email/provider";
 import { processProviderHistory } from "@/utils/webhook/process-history";
 import { hash } from "@/utils/hash";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { reconcileRecentOutlookMessages } from "@/utils/outlook/reconcile-recent-messages";
 import {
   hashEmailBody,
   convertGmailUrlBody,
@@ -37,10 +39,12 @@ export const adminProcessHistoryAction = adminActionClient
       parsedInput: { emailAddress, historyId, startHistoryId },
       ctx: { logger },
     }) => {
+      const normalizedEmailAddress = emailAddress.toLowerCase();
       const emailAccount = await prisma.emailAccount.findUnique({
-        where: { email: emailAddress.toLowerCase() },
+        where: { email: normalizedEmailAddress },
         select: {
           id: true,
+          email: true,
           account: {
             select: {
               provider: true,
@@ -60,9 +64,36 @@ export const adminProcessHistoryAction = adminActionClient
         throw new SafeError("No provider found for email account");
       }
 
+      logger.info("Starting admin process history", {
+        emailAccountId: emailAccount.id,
+        provider,
+        historyId,
+        startHistoryId,
+      });
+
+      if (isMicrosoftProvider(provider) && !historyId && !startHistoryId) {
+        const result = await reconcileRecentOutlookMessages({
+          emailAccountId: emailAccount.id,
+          emailAddress: emailAccount.email,
+          subscriptionId: emailAccount.watchEmailsSubscriptionId || undefined,
+          after: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          maxMessages: 100,
+          logger,
+        });
+
+        logger.info("Finished admin process history", {
+          emailAccountId: emailAccount.id,
+          provider,
+          processedCount: result.processedCount,
+          candidateCount: result.candidateCount,
+        });
+
+        return;
+      }
+
       await processProviderHistory({
         provider,
-        emailAddress,
+        emailAddress: normalizedEmailAddress,
         historyId,
         startHistoryId,
         subscriptionId: emailAccount.watchEmailsSubscriptionId || undefined,
@@ -71,6 +102,13 @@ export const adminProcessHistoryAction = adminActionClient
           conversationId: startHistoryId?.toString(),
         },
         logger,
+      });
+
+      logger.info("Finished admin process history", {
+        emailAccountId: emailAccount.id,
+        provider,
+        historyId,
+        startHistoryId,
       });
     },
   );

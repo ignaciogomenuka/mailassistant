@@ -31,6 +31,7 @@ import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { ThreadLookup } from "@/components/assistant-chat/tools";
 import { formatToolLabel } from "@/components/assistant-chat/tool-label";
 import { requiresThreadIds } from "@/utils/ai/assistant/manage-inbox-actions";
+import { pluralize } from "@/utils/string";
 
 interface MessagePartProps {
   disableConfirm: boolean;
@@ -747,10 +748,6 @@ function getToolFailureMessage(output: unknown): string | null {
 function getToolSuccessMessage(output: unknown): string | null {
   if (typeof output !== "object" || output === null) return null;
   return toMessageString((output as Record<string, unknown>).message);
-}
-
-function pluralize(count: number, singular: string, plural: string) {
-  return count === 1 ? singular : plural;
 }
 
 function getSenderCategoryOverviewSuccessText(output: unknown): string {

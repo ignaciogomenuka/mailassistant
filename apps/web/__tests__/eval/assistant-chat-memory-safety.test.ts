@@ -624,7 +624,9 @@ function hasExpectedSurface(
 
     return (
       readAttachmentCall?.messageId ===
-      latestMemorySafetyAttachmentFixture.messageId
+        latestMemorySafetyAttachmentFixture.messageId &&
+      readAttachmentCall?.attachmentId ===
+        latestMemorySafetyAttachmentFixture.attachmentId
     );
   }
 

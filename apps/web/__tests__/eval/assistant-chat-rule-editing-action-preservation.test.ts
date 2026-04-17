@@ -450,6 +450,7 @@ async function runAssistantChat({
     messages,
     emailAccount,
     logger,
+    chatHasHistory: true,
   });
 
   return {

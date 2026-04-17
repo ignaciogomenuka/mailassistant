@@ -4,7 +4,11 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createEmailProvider } from "@/utils/email/provider";
-import { extractEmailAddress, splitRecipientList } from "@/utils/email";
+import {
+  extractEmailAddress,
+  extractUniqueEmailAddresses,
+  splitRecipientList,
+} from "@/utils/email";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
@@ -14,6 +18,10 @@ import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-ad
 import { runWithBoundedConcurrency } from "@/utils/async";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
+import { sleep } from "@/utils/sleep";
+import { archiveCategory } from "@/utils/categorize/senders/archive-category";
+import { getCategoryOverview } from "@/utils/categorize/senders/get-category-overview";
+import { startBulkCategorization } from "@/utils/categorize/senders/start-bulk-categorization";
 import {
   manageInboxActions,
   requiresSenderEmails,
@@ -24,8 +32,13 @@ import {
   unsubscribeSenderAndMark,
 } from "@/utils/senders/unsubscribe";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import {
+  getCategorizationProgress,
+  getCategorizationStatusSnapshot,
+} from "@/utils/redis/categorization-progress";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
+const MAX_SENDER_CATEGORIZATION_WAIT_MS = 1500;
 
 const recipientListSchema = z
   .string()
@@ -191,6 +204,208 @@ export const getAccountOverviewTool = ({
 
 export type GetAccountOverviewTool = InferUITool<
   ReturnType<typeof getAccountOverviewTool>
+>;
+
+const getSenderCategorizationStatusInputSchema = z.object({
+  waitMs: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_SENDER_CATEGORIZATION_WAIT_MS)
+    .default(0)
+    .describe(
+      "Optional server-side wait before reading progress. Use for short bounded polling only.",
+    ),
+});
+
+const manageSenderCategoryInputSchema = z
+  .object({
+    action: z
+      .literal("archive_category")
+      .describe("Category cleanup action. Only archive_category is supported."),
+    categoryId: z
+      .string()
+      .trim()
+      .min(1)
+      .nullish()
+      .describe(
+        "Exact category ID from getSenderCategoryOverview. Prefer this when available.",
+      ),
+    categoryName: z
+      .string()
+      .trim()
+      .min(1)
+      .nullish()
+      .describe(
+        'Exact category name from getSenderCategoryOverview. Supports the special name "Uncategorized".',
+      ),
+  })
+  .refine((value) => Boolean(value.categoryId || value.categoryName), {
+    message: "categoryId or categoryName is required",
+  });
+
+export const getSenderCategoryOverviewTool = ({
+  email,
+  emailAccountId,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Inspect sender categories for the current account. Returns exact category names, sender counts, sample senders, uncategorized sender count, and current categorization progress. Use this before any category-based cleanup, and prefer it over searchInbox when the user asks to clean up by category. If the user only wants the threads already shown or a small explicit set of emails, stay with searchInbox and manageInbox instead.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      trackToolCall({ tool: "get_sender_category_overview", email, logger });
+
+      try {
+        return await getCategoryOverview({ emailAccountId });
+      } catch (error) {
+        logger.error("Failed to load sender category overview", { error });
+        return {
+          error: "Failed to load sender category overview",
+        };
+      }
+    },
+  });
+
+export type GetSenderCategoryOverviewTool = InferUITool<
+  ReturnType<typeof getSenderCategoryOverviewTool>
+>;
+
+export const startSenderCategorizationTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Start sender categorization for the current account. This creates default categories if needed, enables automatic sender categorization, queues uncategorized senders for AI categorization, and returns current progress. Use this only when category cleanup is needed and getSenderCategoryOverview shows category coverage is not ready. After starting, poll getSenderCategorizationStatus only briefly before deciding whether cleanup can continue. Safe to call again: if a run is already active, it returns the existing run instead of starting a duplicate job.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      trackToolCall({ tool: "start_sender_categorization", email, logger });
+
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+
+        return await startBulkCategorization({
+          emailAccountId,
+          emailProvider,
+          logger,
+        });
+      } catch (error) {
+        logger.error("Failed to start sender categorization", { error });
+        return {
+          error: "Failed to start sender categorization",
+        };
+      }
+    },
+  });
+
+export type StartSenderCategorizationTool = InferUITool<
+  ReturnType<typeof startSenderCategorizationTool>
+>;
+
+export const getSenderCategorizationStatusTool = ({
+  email,
+  emailAccountId,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  logger: Logger;
+}) =>
+  tool({
+    description: `Check sender categorization progress. Use this after startSenderCategorization to show progress in chat or to poll briefly before deciding whether category cleanup can continue. Keep polling bounded to short waits only, with at most 3 polls and waitMs no higher than ${MAX_SENDER_CATEGORIZATION_WAIT_MS} per poll. If categorization is still running after that bounded polling, stop and report the progress instead of falling back to manual searchInbox pagination. waitMs optionally delays the read server-side. This does not change inbox state.`,
+    inputSchema: getSenderCategorizationStatusInputSchema,
+    execute: async ({ waitMs }) => {
+      trackToolCall({
+        tool: "get_sender_categorization_status",
+        email,
+        logger,
+      });
+
+      try {
+        const boundedWaitMs = Math.min(
+          waitMs,
+          MAX_SENDER_CATEGORIZATION_WAIT_MS,
+        );
+
+        if (boundedWaitMs > 0) {
+          await sleep(boundedWaitMs);
+        }
+
+        const progress = await getCategorizationProgress({ emailAccountId });
+        return getCategorizationStatusSnapshot(progress);
+      } catch (error) {
+        logger.error("Failed to load sender categorization status", { error });
+        return {
+          error: "Failed to load sender categorization status",
+        };
+      }
+    },
+  });
+
+export type GetSenderCategorizationStatusTool = InferUITool<
+  ReturnType<typeof getSenderCategorizationStatusTool>
+>;
+
+export const manageSenderCategoryTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      'Archive all mail from senders currently assigned to one sender category. Use this only after getSenderCategoryOverview confirmed the exact category ID or exact category name the user wants. Prefer categoryId when available. Supports the special category name "Uncategorized". If the requested category name does not exactly exist, do not guess; list the available category names and ask a brief clarification question instead. Do not use this for thread-level cleanup or arbitrary search results; use manageInbox instead.',
+    inputSchema: manageSenderCategoryInputSchema,
+    execute: async ({ categoryId, categoryName }) => {
+      trackToolCall({ tool: "manage_sender_category", email, logger });
+
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+
+        return await archiveCategory({
+          email,
+          emailAccountId,
+          emailProvider,
+          logger,
+          categoryId,
+          categoryName,
+        });
+      } catch (error) {
+        logger.error("Failed to manage sender category", { error });
+        return {
+          error: "Failed to manage sender category",
+        };
+      }
+    },
+  });
+
+export type ManageSenderCategoryTool = InferUITool<
+  ReturnType<typeof manageSenderCategoryTool>
 >;
 
 function getSearchQueryDescription(provider: string): string {
@@ -1291,13 +1506,7 @@ function hasOnlyValidRecipients(recipientList: string) {
 }
 
 function normalizeSenderEmails(fromEmails: string[]) {
-  return [
-    ...new Set(
-      fromEmails
-        .map((fromEmail) => extractEmailAddress(fromEmail))
-        .filter((fromEmail): fromEmail is string => Boolean(fromEmail)),
-    ),
-  ];
+  return extractUniqueEmailAddresses(fromEmails);
 }
 
 const LABEL_MESSAGE_CONCURRENCY = 1;

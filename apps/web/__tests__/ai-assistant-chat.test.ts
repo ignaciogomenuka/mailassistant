@@ -13,6 +13,11 @@ const {
   mockPosthogCaptureEvent,
   mockUnsubscribeSenderAndMark,
   mockPrisma,
+  mockArchiveCategory,
+  mockGetCategoryOverview,
+  mockStartBulkCategorization,
+  mockGetCategorizationProgress,
+  mockGetCategorizationStatusSnapshot,
 } = vi.hoisted(() => ({
   envState: {
     sendEmailEnabled: true,
@@ -40,6 +45,11 @@ const {
       findMany: vi.fn().mockResolvedValue([]),
     },
   },
+  mockArchiveCategory: vi.fn(),
+  mockGetCategoryOverview: vi.fn(),
+  mockStartBulkCategorization: vi.fn(),
+  mockGetCategorizationProgress: vi.fn(),
+  mockGetCategorizationStatusSnapshot: vi.fn(),
 }));
 
 vi.mock("@/utils/llms", () => ({
@@ -56,6 +66,23 @@ vi.mock("@/utils/posthog", () => ({
 
 vi.mock("@/utils/senders/unsubscribe", () => ({
   unsubscribeSenderAndMark: mockUnsubscribeSenderAndMark,
+}));
+
+vi.mock("@/utils/categorize/senders/archive-category", () => ({
+  archiveCategory: mockArchiveCategory,
+}));
+
+vi.mock("@/utils/categorize/senders/get-category-overview", () => ({
+  getCategoryOverview: mockGetCategoryOverview,
+}));
+
+vi.mock("@/utils/categorize/senders/start-bulk-categorization", () => ({
+  startBulkCategorization: mockStartBulkCategorization,
+}));
+
+vi.mock("@/utils/redis/categorization-progress", () => ({
+  getCategorizationProgress: mockGetCategorizationProgress,
+  getCategorizationStatusSnapshot: mockGetCategorizationStatusSnapshot,
 }));
 
 vi.mock("@/utils/prisma", () => ({
@@ -150,6 +177,10 @@ describe("aiProcessAssistantChat", () => {
 
     expect(args.messages[0].role).toBe("system");
     expect(args.tools.getAccountOverview).toBeDefined();
+    expect(args.tools.getSenderCategoryOverview).toBeDefined();
+    expect(args.tools.startSenderCategorization).toBeDefined();
+    expect(args.tools.getSenderCategorizationStatus).toBeDefined();
+    expect(args.tools.manageSenderCategory).toBeDefined();
     expect(args.tools.getAssistantCapabilities).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();
     expect(args.tools.readEmail).toBeDefined();

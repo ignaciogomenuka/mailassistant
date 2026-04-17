@@ -33,7 +33,9 @@ export function getAvailableActionsForRuleEditor({
   ] as ActionType[];
 }
 
-export function getExtraAvailableActionsForRuleEditor() {
+export function getExtraAvailableActionsForRuleEditor(
+  _existingActionTypes: ActionType[] = [],
+) {
   return [
     ActionType.DIGEST,
     ...(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false

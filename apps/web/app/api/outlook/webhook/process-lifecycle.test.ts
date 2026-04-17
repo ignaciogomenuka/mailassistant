@@ -86,4 +86,61 @@ describe("processOutlookLifecycleNotification", () => {
     });
     expect(backfillRecentOutlookMessages).not.toHaveBeenCalled();
   });
+
+  it("recreates the subscription and backfills after subscriptionRemoved", async () => {
+    vi.mocked(getWebhookEmailAccount).mockResolvedValue({
+      id: "email-account-id",
+      email: "user@example.com",
+      watchEmailsSubscriptionId: "stale-subscription-id",
+    } as any);
+    vi.mocked(prisma.emailMessage.findFirst).mockResolvedValue({
+      date: new Date("2026-04-16T11:00:00.000Z"),
+    } as any);
+    vi.mocked(createManagedOutlookSubscription).mockResolvedValue({
+      subscriptionId: "refreshed-subscription-id",
+      expirationDate: new Date("2026-04-17T00:00:00.000Z"),
+    } as any);
+
+    await processOutlookLifecycleNotification({
+      notification: {
+        subscriptionId: "stale-subscription-id",
+        lifecycleEvent: "subscriptionRemoved",
+      } as any,
+      logger,
+    });
+
+    expect(createManagedOutlookSubscription).toHaveBeenCalledWith({
+      emailAccountId: "email-account-id",
+      logger: expect.anything(),
+      forceRefresh: true,
+    });
+    expect(backfillRecentOutlookMessages).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "email-account-id",
+        emailAddress: "user@example.com",
+        subscriptionId: "refreshed-subscription-id",
+        after: new Date("2026-04-16T10:00:00.000Z"),
+        maxMessages: 100,
+      }),
+    );
+  });
+
+  it("does not call subscription or backfill helpers for unknown lifecycle events", async () => {
+    vi.mocked(getWebhookEmailAccount).mockResolvedValue({
+      id: "email-account-id",
+      email: "user@example.com",
+      watchEmailsSubscriptionId: "current-subscription-id",
+    } as any);
+
+    await processOutlookLifecycleNotification({
+      notification: {
+        subscriptionId: "current-subscription-id",
+        lifecycleEvent: "unknownFutureEvent",
+      } as any,
+      logger,
+    });
+
+    expect(createManagedOutlookSubscription).not.toHaveBeenCalled();
+    expect(backfillRecentOutlookMessages).not.toHaveBeenCalled();
+  });
 });

@@ -26,12 +26,16 @@ import {
 import {
   forwardEmailTool,
   getAccountOverviewTool,
+  getSenderCategorizationStatusTool,
+  getSenderCategoryOverviewTool,
   manageInboxTool,
+  manageSenderCategoryTool,
   readAttachmentTool,
   readEmailTool,
   replyEmailTool,
   searchInboxTool,
   sendEmailTool,
+  startSenderCategorizationTool,
 } from "./chat-inbox-tools";
 import { createOrGetLabelTool, listLabelsTool } from "./chat-label-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
@@ -234,6 +238,11 @@ export async function aiProcessAssistantChat({
   const allTools = {
     getAssistantCapabilities: getAssistantCapabilitiesTool(toolOptions),
     getAccountOverview: getAccountOverviewTool(toolOptions),
+    getSenderCategoryOverview: getSenderCategoryOverviewTool(toolOptions),
+    startSenderCategorization: startSenderCategorizationTool(toolOptions),
+    getSenderCategorizationStatus:
+      getSenderCategorizationStatusTool(toolOptions),
+    manageSenderCategory: manageSenderCategoryTool(toolOptions),
     searchInbox: searchInboxTool(toolOptions),
     readEmail: readEmailTool(toolOptions),
     manageInbox: manageInboxTool(toolOptions),

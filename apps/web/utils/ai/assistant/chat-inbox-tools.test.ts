@@ -5,10 +5,14 @@ import { createScopedLogger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
   forwardEmailTool,
+  getSenderCategorizationStatusTool,
+  getSenderCategoryOverviewTool,
   manageInboxTool,
+  manageSenderCategoryTool,
   replyEmailTool,
   searchInboxTool,
   sendEmailTool,
+  startSenderCategorizationTool,
 } from "./chat-inbox-tools";
 
 vi.mock("server-only", () => ({}));
@@ -16,6 +20,45 @@ vi.mock("@/utils/prisma");
 vi.mock("@/utils/email/provider");
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
+const {
+  mockArchiveCategory,
+  mockGetCategoryOverview,
+  mockStartBulkCategorization,
+  mockGetCategorizationProgress,
+  mockGetCategorizationStatusSnapshot,
+} = vi.hoisted(() => ({
+  mockArchiveCategory: vi.fn(),
+  mockGetCategoryOverview: vi.fn(),
+  mockStartBulkCategorization: vi.fn(),
+  mockGetCategorizationProgress: vi.fn(),
+  mockGetCategorizationStatusSnapshot: vi.fn(),
+}));
+
+vi.mock("@/utils/categorize/senders/archive-category", () => ({
+  archiveCategory: (...args: Parameters<typeof mockArchiveCategory>) =>
+    mockArchiveCategory(...args),
+}));
+
+vi.mock("@/utils/categorize/senders/get-category-overview", () => ({
+  getCategoryOverview: (...args: Parameters<typeof mockGetCategoryOverview>) =>
+    mockGetCategoryOverview(...args),
+}));
+
+vi.mock("@/utils/categorize/senders/start-bulk-categorization", () => ({
+  startBulkCategorization: (
+    ...args: Parameters<typeof mockStartBulkCategorization>
+  ) => mockStartBulkCategorization(...args),
+}));
+
+vi.mock("@/utils/redis/categorization-progress", () => ({
+  getCategorizationProgress: (
+    ...args: Parameters<typeof mockGetCategorizationProgress>
+  ) => mockGetCategorizationProgress(...args),
+  getCategorizationStatusSnapshot: (
+    ...args: Parameters<typeof mockGetCategorizationStatusSnapshot>
+  ) => mockGetCategorizationStatusSnapshot(...args),
 }));
 
 const TEST_EMAIL = "user@test.com";
@@ -625,5 +668,206 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
 
     expect(result.hasMore).toBe(false);
+  });
+});
+
+describe("chat inbox tools - sender categories", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("getSenderCategoryOverview returns the shared overview payload", async () => {
+    mockGetCategoryOverview.mockResolvedValue({
+      autoCategorizeSenders: true,
+      categorization: {
+        status: "completed",
+        totalItems: 4,
+        completedItems: 4,
+        remainingItems: 0,
+        message: "Sender categorization completed for 4 senders.",
+      },
+      categorizedSenderCount: 12,
+      uncategorizedSenderCount: 3,
+      categories: [],
+    });
+
+    const toolInstance = getSenderCategoryOverviewTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({});
+
+    expect(mockGetCategoryOverview).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+    });
+    expect(createEmailProvider).not.toHaveBeenCalled();
+    expect(result.categorizedSenderCount).toBe(12);
+  });
+
+  it("startSenderCategorization delegates to the shared start helper", async () => {
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      provider: "google",
+    } as any);
+    mockStartBulkCategorization.mockResolvedValue({
+      started: true,
+      alreadyRunning: false,
+      totalQueuedSenders: 8,
+      autoCategorizeSenders: true,
+      progress: {
+        status: "running",
+        totalItems: 8,
+        completedItems: 0,
+        remainingItems: 8,
+        message: "Categorizing senders: 0 of 8 completed.",
+      },
+    });
+
+    const toolInstance = startSenderCategorizationTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({});
+
+    expect(createEmailProvider).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+    expect(mockStartBulkCategorization).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      emailProvider: { provider: "google" },
+      logger,
+    });
+    expect(result.totalQueuedSenders).toBe(8);
+  });
+
+  it("getSenderCategorizationStatus waits briefly before reading progress", async () => {
+    vi.useFakeTimers();
+    mockGetCategorizationProgress.mockResolvedValue({
+      totalItems: 8,
+      completedItems: 3,
+      status: "running",
+      startedAt: "2026-04-16T00:00:00.000Z",
+      updatedAt: "2026-04-16T00:01:00.000Z",
+    });
+    mockGetCategorizationStatusSnapshot.mockReturnValue({
+      status: "running",
+      totalItems: 8,
+      completedItems: 3,
+      remainingItems: 5,
+      message: "Categorizing senders: 3 of 8 completed.",
+    });
+
+    const toolInstance = getSenderCategorizationStatusTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    const resultPromise = (toolInstance.execute as any)({ waitMs: 250 });
+
+    await vi.advanceTimersByTimeAsync(250);
+
+    const result = await resultPromise;
+
+    expect(mockGetCategorizationProgress).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+    });
+    expect(result).toEqual({
+      status: "running",
+      totalItems: 8,
+      completedItems: 3,
+      remainingItems: 5,
+      message: "Categorizing senders: 3 of 8 completed.",
+    });
+
+    vi.useRealTimers();
+  });
+
+  it("getSenderCategorizationStatus caps waitMs at 1500", async () => {
+    vi.useFakeTimers();
+    mockGetCategorizationProgress.mockResolvedValue({
+      totalItems: 8,
+      completedItems: 3,
+      status: "running",
+      startedAt: "2026-04-16T00:00:00.000Z",
+      updatedAt: "2026-04-16T00:01:00.000Z",
+    });
+    mockGetCategorizationStatusSnapshot.mockReturnValue({
+      status: "running",
+      totalItems: 8,
+      completedItems: 3,
+      remainingItems: 5,
+      message: "Categorizing senders: 3 of 8 completed.",
+    });
+
+    const toolInstance = getSenderCategorizationStatusTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    const resultPromise = (toolInstance.execute as any)({ waitMs: 2000 });
+
+    await vi.advanceTimersByTimeAsync(1499);
+    expect(mockGetCategorizationProgress).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+
+    const result = await resultPromise;
+
+    expect(mockGetCategorizationProgress).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+    });
+    expect(result).toEqual({
+      status: "running",
+      totalItems: 8,
+      completedItems: 3,
+      remainingItems: 5,
+      message: "Categorizing senders: 3 of 8 completed.",
+    });
+
+    vi.useRealTimers();
+  });
+
+  it("manageSenderCategory delegates to the archive helper", async () => {
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      provider: "google",
+    } as any);
+    mockArchiveCategory.mockResolvedValue({
+      success: true,
+      action: "archive_category",
+      category: { id: "cat-1", name: "Newsletters" },
+      sendersCount: 6,
+      senders: ["one@example.com"],
+      message: 'Archived mail from 6 senders in "Newsletters".',
+    });
+
+    const toolInstance = manageSenderCategoryTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      action: "archive_category",
+      categoryId: "cat-1",
+    });
+
+    expect(mockArchiveCategory).toHaveBeenCalledWith({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      emailProvider: { provider: "google" },
+      logger,
+      categoryId: "cat-1",
+      categoryName: undefined,
+    });
+    expect(result.sendersCount).toBe(6);
   });
 });

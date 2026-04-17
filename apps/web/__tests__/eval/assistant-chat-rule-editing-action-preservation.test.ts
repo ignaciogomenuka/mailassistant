@@ -182,7 +182,7 @@ describe.runIf(shouldRunEval)(
               hasLabelAction(updateCall.actions, "Newsletter") &&
               hasActionType(updateCall.actions, ActionType.ARCHIVE) &&
               !!archive?.delayInMinutes &&
-              archive.delayInMinutes >= 60;
+              archive.delayInMinutes >= 1440;
 
             evalReporter.record({
               testName: "delayed archive preserves newsletter label",
@@ -231,8 +231,8 @@ describe.runIf(shouldRunEval)(
               hasLabelAction(updateCall.actions, "Marketing") &&
               archives.length === 1 &&
               !!archiveDelay &&
-              archiveDelay >= 60 &&
-              archiveDelay <= 180;
+              archiveDelay >= 90 &&
+              archiveDelay <= 150;
 
             evalReporter.record({
               testName: "adjust marketing delay preserves label and archive",
@@ -313,7 +313,7 @@ describe.runIf(shouldRunEval)(
               hasLabelAction(updateCall.actions, "Newsletter") &&
               hasActionType(updateCall.actions, ActionType.ARCHIVE) &&
               !!archive?.delayInMinutes &&
-              archive.delayInMinutes >= 1440;
+              archive.delayInMinutes >= 10_080;
 
             evalReporter.record({
               testName: "archive after a week keeps newsletter label",

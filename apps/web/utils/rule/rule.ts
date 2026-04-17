@@ -123,7 +123,29 @@ type RuleRecordData = {
   groupId?: string | null;
 };
 
-export async function partialUpdateRule({
+async function updateRuleAndQueueHistory({
+  ruleId,
+  emailAccountId,
+  data,
+  triggerType,
+}: {
+  ruleId: string;
+  emailAccountId: string;
+  data: Prisma.RuleUpdateInput;
+  triggerType: RuleHistoryTrigger;
+}) {
+  const rule = await prisma.rule.update({
+    where: { id: ruleId, emailAccountId },
+    data,
+    include: ruleHistoryRuleInclude,
+  });
+
+  queueRuleHistory({ rule, triggerType });
+
+  return rule;
+}
+
+export function partialUpdateRule({
   ruleId,
   emailAccountId,
   data,
@@ -132,18 +154,15 @@ export async function partialUpdateRule({
   emailAccountId: string;
   data: Partial<Rule>;
 }) {
-  const rule = await prisma.rule.update({
-    where: { id: ruleId, emailAccountId },
+  return updateRuleAndQueueHistory({
+    ruleId,
+    emailAccountId,
     data,
-    include: ruleHistoryRuleInclude,
+    triggerType: "conditions_updated",
   });
-
-  queueRuleHistory({ rule, triggerType: "conditions_updated" });
-
-  return rule;
 }
 
-export async function updateRuleInstructions({
+export function updateRuleInstructions({
   ruleId,
   emailAccountId,
   instructions,
@@ -152,18 +171,15 @@ export async function updateRuleInstructions({
   emailAccountId: string;
   instructions: string;
 }) {
-  const rule = await prisma.rule.update({
-    where: { id: ruleId, emailAccountId },
+  return updateRuleAndQueueHistory({
+    ruleId,
+    emailAccountId,
     data: { instructions },
-    include: ruleHistoryRuleInclude,
+    triggerType: "instructions_updated",
   });
-
-  queueRuleHistory({ rule, triggerType: "instructions_updated" });
-
-  return rule;
 }
 
-export async function setRuleRunOnThreads({
+export function setRuleRunOnThreads({
   ruleId,
   emailAccountId,
   runOnThreads,
@@ -172,18 +188,15 @@ export async function setRuleRunOnThreads({
   emailAccountId: string;
   runOnThreads: boolean;
 }) {
-  const rule = await prisma.rule.update({
-    where: { id: ruleId, emailAccountId },
+  return updateRuleAndQueueHistory({
+    ruleId,
+    emailAccountId,
     data: { runOnThreads },
-    include: ruleHistoryRuleInclude,
+    triggerType: "run_on_threads_updated",
   });
-
-  queueRuleHistory({ rule, triggerType: "run_on_threads_updated" });
-
-  return rule;
 }
 
-export async function setRuleEnabled({
+export function setRuleEnabled({
   ruleId,
   emailAccountId,
   enabled,
@@ -192,15 +205,12 @@ export async function setRuleEnabled({
   emailAccountId: string;
   enabled: boolean;
 }) {
-  const rule = await prisma.rule.update({
-    where: { id: ruleId, emailAccountId },
+  return updateRuleAndQueueHistory({
+    ruleId,
+    emailAccountId,
     data: { enabled },
-    include: ruleHistoryRuleInclude,
+    triggerType: "enabled_updated",
   });
-
-  queueRuleHistory({ rule, triggerType: "enabled_updated" });
-
-  return rule;
 }
 
 export async function createRuleWithResolvedActions({

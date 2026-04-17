@@ -694,7 +694,6 @@ describe("chat inbox tools - sender categories", () => {
     const toolInstance = getSenderCategoryOverviewTool({
       email: TEST_EMAIL,
       emailAccountId: "email-account-1",
-      provider: "google",
       logger,
     });
 
@@ -767,7 +766,6 @@ describe("chat inbox tools - sender categories", () => {
     const toolInstance = getSenderCategorizationStatusTool({
       email: TEST_EMAIL,
       emailAccountId: "email-account-1",
-      provider: "google",
       logger,
     });
 
@@ -811,7 +809,6 @@ describe("chat inbox tools - sender categories", () => {
     const toolInstance = getSenderCategorizationStatusTool({
       email: TEST_EMAIL,
       emailAccountId: "email-account-1",
-      provider: "google",
       logger,
     });
 

@@ -251,7 +251,6 @@ export const getSenderCategoryOverviewTool = ({
 }: {
   email: string;
   emailAccountId: string;
-  provider: string;
   logger: Logger;
 }) =>
   tool({
@@ -326,7 +325,6 @@ export const getSenderCategorizationStatusTool = ({
 }: {
   email: string;
   emailAccountId: string;
-  provider: string;
   logger: Logger;
 }) =>
   tool({

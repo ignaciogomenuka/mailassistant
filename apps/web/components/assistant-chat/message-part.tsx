@@ -787,7 +787,7 @@ function getStartSenderCategorizationSuccessText(output: unknown): string {
   if (totalQueued > 0) {
     return `Categorizing ${totalQueued} ${pluralize(totalQueued, "sender", "senders")}`;
   }
-  return "Sender categorization started";
+  return "No senders to categorize";
 }
 
 function getSenderCategorizationStatusSuccessText(output: unknown): string {

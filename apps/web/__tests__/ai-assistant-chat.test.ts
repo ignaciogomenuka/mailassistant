@@ -36,6 +36,10 @@ const {
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    ruleHistory: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({}),
+    },
     knowledge: {
       create: vi.fn(),
     },

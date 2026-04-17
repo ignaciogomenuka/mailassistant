@@ -5,19 +5,15 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
 import { getActionRiskLevel } from "@/utils/risk";
 
-const {
-  createRuleHistoryMock,
-  createRuleHistoryFromRuleIdMock,
-  getRuleForHistoryMock,
-  mockEnv,
-} = vi.hoisted(() => ({
-  createRuleHistoryMock: vi.fn(),
-  createRuleHistoryFromRuleIdMock: vi.fn(),
-  getRuleForHistoryMock: vi.fn(),
-  mockEnv: {
-    webhookActionsEnabled: true,
-  },
-}));
+const { createRuleHistoryMock, getRuleForHistoryMock, mockEnv } = vi.hoisted(
+  () => ({
+    createRuleHistoryMock: vi.fn(),
+    getRuleForHistoryMock: vi.fn(),
+    mockEnv: {
+      webhookActionsEnabled: true,
+    },
+  }),
+);
 
 vi.mock("@/utils/prisma");
 vi.mock("next/server", () => ({
@@ -31,8 +27,8 @@ vi.mock("@/app/(app)/[emailAccountId]/assistant/examples", () => ({
 }));
 vi.mock("@/utils/rule/rule-history", () => ({
   createRuleHistory: createRuleHistoryMock,
-  createRuleHistoryFromRuleId: createRuleHistoryFromRuleIdMock,
   getRuleForHistory: getRuleForHistoryMock,
+  ruleHistoryRuleInclude: { actions: true, group: true },
 }));
 vi.mock("@/utils/email/provider-types", () => ({
   isMicrosoftProvider: vi.fn(() => false),
@@ -552,6 +548,8 @@ describe("rule history snapshots", () => {
   it("writes history when updating instructions", async () => {
     prisma.rule.update.mockResolvedValue({
       id: "rule-id",
+      actions: [],
+      group: null,
     } as any);
 
     await updateRuleInstructions({
@@ -560,9 +558,13 @@ describe("rule history snapshots", () => {
       instructions: "updated instructions",
     });
 
-    expect(createRuleHistoryFromRuleIdMock).toHaveBeenCalledWith({
-      ruleId: "rule-id",
-      emailAccountId: "email-account-id",
+    expect(prisma.rule.update).toHaveBeenCalledWith({
+      where: { id: "rule-id", emailAccountId: "email-account-id" },
+      data: { instructions: "updated instructions" },
+      include: { actions: true, group: true },
+    });
+    expect(createRuleHistoryMock).toHaveBeenCalledWith({
+      rule: expect.objectContaining({ id: "rule-id" }),
       triggerType: "instructions_updated",
     });
   });
@@ -571,6 +573,7 @@ describe("rule history snapshots", () => {
     prisma.rule.update.mockResolvedValue({
       id: "rule-id",
       actions: [],
+      group: null,
     } as any);
 
     await setRuleEnabled({
@@ -579,9 +582,13 @@ describe("rule history snapshots", () => {
       enabled: false,
     });
 
-    expect(createRuleHistoryFromRuleIdMock).toHaveBeenCalledWith({
-      ruleId: "rule-id",
-      emailAccountId: "email-account-id",
+    expect(prisma.rule.update).toHaveBeenCalledWith({
+      where: { id: "rule-id", emailAccountId: "email-account-id" },
+      data: { enabled: false },
+      include: { actions: true, group: true },
+    });
+    expect(createRuleHistoryMock).toHaveBeenCalledWith({
+      rule: expect.objectContaining({ id: "rule-id" }),
       triggerType: "enabled_updated",
     });
   });
@@ -589,6 +596,8 @@ describe("rule history snapshots", () => {
   it("writes history when changing thread execution mode", async () => {
     prisma.rule.update.mockResolvedValue({
       id: "rule-id",
+      actions: [],
+      group: null,
     } as any);
 
     await setRuleRunOnThreads({
@@ -597,9 +606,13 @@ describe("rule history snapshots", () => {
       runOnThreads: false,
     });
 
-    expect(createRuleHistoryFromRuleIdMock).toHaveBeenCalledWith({
-      ruleId: "rule-id",
-      emailAccountId: "email-account-id",
+    expect(prisma.rule.update).toHaveBeenCalledWith({
+      where: { id: "rule-id", emailAccountId: "email-account-id" },
+      data: { runOnThreads: false },
+      include: { actions: true, group: true },
+    });
+    expect(createRuleHistoryMock).toHaveBeenCalledWith({
+      rule: expect.objectContaining({ id: "rule-id" }),
       triggerType: "run_on_threads_updated",
     });
   });

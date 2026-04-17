@@ -9,8 +9,9 @@ import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import {
   createRuleHistory,
-  createRuleHistoryFromRuleId,
   getRuleForHistory,
+  ruleHistoryRuleInclude,
+  type RuleHistoryTrigger,
 } from "@/utils/rule/rule-history";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -134,13 +135,10 @@ export async function partialUpdateRule({
   const rule = await prisma.rule.update({
     where: { id: ruleId, emailAccountId },
     data,
-    include: { actions: true, group: true },
+    include: ruleHistoryRuleInclude,
   });
 
-  queueRuleHistory({
-    rule,
-    triggerType: "conditions_updated",
-  });
+  queueRuleHistory({ rule, triggerType: "conditions_updated" });
 
   return rule;
 }
@@ -157,13 +155,10 @@ export async function updateRuleInstructions({
   const rule = await prisma.rule.update({
     where: { id: ruleId, emailAccountId },
     data: { instructions },
+    include: ruleHistoryRuleInclude,
   });
 
-  queueRuleHistoryFromRuleId({
-    ruleId,
-    emailAccountId,
-    triggerType: "instructions_updated",
-  });
+  queueRuleHistory({ rule, triggerType: "instructions_updated" });
 
   return rule;
 }
@@ -180,13 +175,10 @@ export async function setRuleRunOnThreads({
   const rule = await prisma.rule.update({
     where: { id: ruleId, emailAccountId },
     data: { runOnThreads },
+    include: ruleHistoryRuleInclude,
   });
 
-  queueRuleHistoryFromRuleId({
-    ruleId,
-    emailAccountId,
-    triggerType: "run_on_threads_updated",
-  });
+  queueRuleHistory({ rule, triggerType: "run_on_threads_updated" });
 
   return rule;
 }
@@ -203,14 +195,10 @@ export async function setRuleEnabled({
   const rule = await prisma.rule.update({
     where: { id: ruleId, emailAccountId },
     data: { enabled },
-    include: { actions: true },
+    include: ruleHistoryRuleInclude,
   });
 
-  queueRuleHistoryFromRuleId({
-    ruleId,
-    emailAccountId,
-    triggerType: "enabled_updated",
-  });
+  queueRuleHistory({ rule, triggerType: "enabled_updated" });
 
   return rule;
 }
@@ -592,13 +580,10 @@ export async function updateRuleActions({
         },
       },
     },
-    include: { actions: true, group: true },
+    include: ruleHistoryRuleInclude,
   });
 
-  queueRuleHistory({
-    rule,
-    triggerType: "actions_updated",
-  });
+  queueRuleHistory({ rule, triggerType: "actions_updated" });
 
   return rule;
 }
@@ -850,17 +835,9 @@ function validateWebhookUrlsInActions(actions: RuleActionCreateData[]) {
 
 function queueRuleHistory(params: {
   rule: RuleWithRelations;
-  triggerType: Parameters<typeof createRuleHistory>[0]["triggerType"];
+  triggerType: RuleHistoryTrigger;
 }) {
   after(() => createRuleHistory(params));
-}
-
-function queueRuleHistoryFromRuleId(params: {
-  ruleId: string;
-  emailAccountId: string;
-  triggerType: Parameters<typeof createRuleHistoryFromRuleId>[0]["triggerType"];
-}) {
-  after(() => createRuleHistoryFromRuleId(params));
 }
 
 function addNestedActionOwnershipToInputs(

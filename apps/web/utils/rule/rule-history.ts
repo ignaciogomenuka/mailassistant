@@ -96,21 +96,3 @@ export async function getRuleForHistory({
     include: ruleHistoryRuleInclude,
   });
 }
-
-export async function createRuleHistoryFromRuleId({
-  ruleId,
-  emailAccountId,
-  triggerType,
-}: {
-  ruleId: string;
-  emailAccountId: string;
-  triggerType: RuleHistoryTrigger;
-}) {
-  const rule = await getRuleForHistory({ ruleId, emailAccountId });
-  if (!rule) return null;
-
-  return createRuleHistory({
-    rule,
-    triggerType,
-  });
-}

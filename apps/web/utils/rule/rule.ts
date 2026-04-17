@@ -1,4 +1,5 @@
 import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
+import { after } from "next/server";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { ActionType } from "@/generated/prisma/enums";
@@ -6,7 +7,11 @@ import type { SystemType } from "@/generated/prisma/enums";
 import type { Prisma, Rule } from "@/generated/prisma/client";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
-import { createRuleHistory } from "@/utils/rule/rule-history";
+import {
+  createRuleHistory,
+  createRuleHistoryFromRuleId,
+  getRuleForHistory,
+} from "@/utils/rule/rule-history";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
@@ -117,7 +122,7 @@ type RuleRecordData = {
   groupId?: string | null;
 };
 
-export function partialUpdateRule({
+export async function partialUpdateRule({
   ruleId,
   emailAccountId,
   data,
@@ -126,14 +131,21 @@ export function partialUpdateRule({
   emailAccountId: string;
   data: Partial<Rule>;
 }) {
-  return prisma.rule.update({
+  const rule = await prisma.rule.update({
     where: { id: ruleId, emailAccountId },
     data,
     include: { actions: true, group: true },
   });
+
+  queueRuleHistory({
+    rule,
+    triggerType: "conditions_updated",
+  });
+
+  return rule;
 }
 
-export function updateRuleInstructions({
+export async function updateRuleInstructions({
   ruleId,
   emailAccountId,
   instructions,
@@ -142,13 +154,21 @@ export function updateRuleInstructions({
   emailAccountId: string;
   instructions: string;
 }) {
-  return prisma.rule.update({
+  const rule = await prisma.rule.update({
     where: { id: ruleId, emailAccountId },
     data: { instructions },
   });
+
+  queueRuleHistoryFromRuleId({
+    ruleId,
+    emailAccountId,
+    triggerType: "instructions_updated",
+  });
+
+  return rule;
 }
 
-export function setRuleRunOnThreads({
+export async function setRuleRunOnThreads({
   ruleId,
   emailAccountId,
   runOnThreads,
@@ -157,13 +177,21 @@ export function setRuleRunOnThreads({
   emailAccountId: string;
   runOnThreads: boolean;
 }) {
-  return prisma.rule.update({
+  const rule = await prisma.rule.update({
     where: { id: ruleId, emailAccountId },
     data: { runOnThreads },
   });
+
+  queueRuleHistoryFromRuleId({
+    ruleId,
+    emailAccountId,
+    triggerType: "run_on_threads_updated",
+  });
+
+  return rule;
 }
 
-export function setRuleEnabled({
+export async function setRuleEnabled({
   ruleId,
   emailAccountId,
   enabled,
@@ -172,11 +200,19 @@ export function setRuleEnabled({
   emailAccountId: string;
   enabled: boolean;
 }) {
-  return prisma.rule.update({
+  const rule = await prisma.rule.update({
     where: { id: ruleId, emailAccountId },
     data: { enabled },
     include: { actions: true },
   });
+
+  queueRuleHistoryFromRuleId({
+    ruleId,
+    emailAccountId,
+    triggerType: "enabled_updated",
+  });
+
+  return rule;
 }
 
 export async function createRuleWithResolvedActions({
@@ -222,7 +258,7 @@ export async function createRuleWithResolvedActions({
     include: { actions: true, group: true },
   });
 
-  return rule as RuleWithRelations;
+  return rule;
 }
 
 export async function replaceRuleWithResolvedActions({
@@ -282,7 +318,7 @@ export async function replaceRuleWithResolvedActions({
     });
   }
 
-  return rule as RuleWithRelations;
+  return rule;
 }
 
 export async function createRule({
@@ -349,7 +385,7 @@ export async function createRule({
       actions: mappedActions,
     });
 
-    await createRuleHistory({ rule, triggerType: "created" });
+    queueRuleHistory({ rule, triggerType: "created" });
 
     return rule;
   } catch (error) {
@@ -408,7 +444,7 @@ export async function updateRule({
       actions: mappedActions,
     });
 
-    await createRuleHistory({ rule, triggerType: "updated" });
+    queueRuleHistory({ rule, triggerType: "updated" });
 
     return rule;
   } catch (error) {
@@ -469,7 +505,7 @@ export async function upsertSystemRule({
       actions,
     });
 
-    await createRuleHistory({ rule, triggerType: "updated" });
+    queueRuleHistory({ rule, triggerType: "updated" });
     return rule;
   } else {
     logger.info("Creating new system rule");
@@ -483,7 +519,7 @@ export async function upsertSystemRule({
         actions,
       });
 
-      await createRuleHistory({ rule, triggerType: "created" });
+      queueRuleHistory({ rule, triggerType: "created" });
       return rule;
     } catch (error) {
       if (!isDuplicateError(error, "name")) throw error;
@@ -503,7 +539,7 @@ export async function upsertSystemRule({
         actions,
       });
 
-      await createRuleHistory({ rule, triggerType: "updated" });
+      queueRuleHistory({ rule, triggerType: "updated" });
       return rule;
     }
   }
@@ -546,7 +582,7 @@ export async function updateRuleActions({
   );
   validateWebhookUrlsInActions(mappedActions);
 
-  return prisma.rule.update({
+  const rule = await prisma.rule.update({
     where: { id: ruleId, emailAccountId },
     data: {
       actions: {
@@ -556,7 +592,15 @@ export async function updateRuleActions({
         },
       },
     },
+    include: { actions: true, group: true },
   });
+
+  queueRuleHistory({
+    rule,
+    triggerType: "actions_updated",
+  });
+
+  return rule;
 }
 
 export async function deleteRule({
@@ -568,6 +612,19 @@ export async function deleteRule({
   ruleId: string;
   groupId?: string | null;
 }) {
+  const rule = await getRuleForHistory({ ruleId, emailAccountId });
+  if (!rule) {
+    await prisma.rule.delete({ where: { id: ruleId, emailAccountId } });
+    return;
+  }
+
+  // RuleHistory still references Rule, so deletes must snapshot before
+  // removing the rule row.
+  await createRuleHistory({
+    rule,
+    triggerType: "deleted",
+  });
+
   if (groupId) {
     const deletedGroups = await prisma.group.deleteMany({
       where: { id: groupId, emailAccountId },
@@ -789,6 +846,21 @@ function validateWebhookUrlsInActions(actions: RuleActionCreateData[]) {
       throw new SafeError(`Invalid webhook URL: ${result.error}`, 400);
     }
   }
+}
+
+function queueRuleHistory(params: {
+  rule: RuleWithRelations;
+  triggerType: Parameters<typeof createRuleHistory>[0]["triggerType"];
+}) {
+  after(() => createRuleHistory(params));
+}
+
+function queueRuleHistoryFromRuleId(params: {
+  ruleId: string;
+  emailAccountId: string;
+  triggerType: Parameters<typeof createRuleHistoryFromRuleId>[0]["triggerType"];
+}) {
+  after(() => createRuleHistoryFromRuleId(params));
 }
 
 function addNestedActionOwnershipToInputs(

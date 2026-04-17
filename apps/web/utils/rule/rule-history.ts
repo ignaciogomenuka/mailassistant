@@ -1,7 +1,21 @@
 import prisma from "@/utils/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import type { RuleWithRelations } from "@/utils/rule/types";
 
-export type RuleHistoryTrigger = "created" | "updated";
+export type RuleHistoryTrigger =
+  | "created"
+  | "updated"
+  | "actions_updated"
+  | "conditions_updated"
+  | "instructions_updated"
+  | "enabled_updated"
+  | "run_on_threads_updated"
+  | "deleted";
+
+export const ruleHistoryRuleInclude = {
+  actions: true,
+  group: true,
+} satisfies Prisma.RuleInclude;
 
 /**
  * Creates a complete snapshot of a rule in the RuleHistory table
@@ -26,13 +40,20 @@ export async function createRuleHistory({
   const actionsSnapshot = rule.actions.map((action) => ({
     id: action.id,
     type: action.type,
+    messagingChannelId: action.messagingChannelId,
+    messagingChannelEmailAccountId: action.messagingChannelEmailAccountId,
     label: action.label,
+    labelId: action.labelId,
     subject: action.subject,
     content: action.content,
     to: action.to,
     cc: action.cc,
     bcc: action.bcc,
     url: action.url,
+    folderName: action.folderName,
+    folderId: action.folderId,
+    delayInMinutes: action.delayInMinutes,
+    staticAttachments: action.staticAttachments,
   }));
 
   return prisma.ruleHistory.create({
@@ -55,5 +76,41 @@ export async function createRuleHistory({
       // Note: this is unique and can fail in race conditions. Not a big deal for now.
       version: nextVersion,
     },
+  });
+}
+
+export async function getRuleForHistory({
+  ruleId,
+  emailAccountId,
+}: {
+  ruleId: string;
+  emailAccountId: string;
+}) {
+  return prisma.rule.findUnique({
+    where: {
+      id_emailAccountId: {
+        id: ruleId,
+        emailAccountId,
+      },
+    },
+    include: ruleHistoryRuleInclude,
+  });
+}
+
+export async function createRuleHistoryFromRuleId({
+  ruleId,
+  emailAccountId,
+  triggerType,
+}: {
+  ruleId: string;
+  emailAccountId: string;
+  triggerType: RuleHistoryTrigger;
+}) {
+  const rule = await getRuleForHistory({ ruleId, emailAccountId });
+  if (!rule) return null;
+
+  return createRuleHistory({
+    rule,
+    triggerType,
   });
 }

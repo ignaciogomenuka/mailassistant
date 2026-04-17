@@ -740,9 +740,7 @@ export function getRuleActionTypeOptions({
       existingActionTypes,
     }),
   );
-  const extraActions = new Set(
-    getExtraAvailableActionsForRuleEditor(existingActionTypes),
-  );
+  const extraActions = new Set(getExtraAvailableActionsForRuleEditor());
 
   return [
     {

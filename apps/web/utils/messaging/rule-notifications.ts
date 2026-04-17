@@ -54,6 +54,10 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
+import {
+  isMessagingChannelOperational,
+  isOperationalSlackChannel,
+} from "@/utils/messaging/channel-validity";
 import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
 import { getMessagingRoute } from "@/utils/messaging/routes";
 import { getEmailUrlForOptionalMessage } from "@/utils/url";
@@ -232,9 +236,8 @@ async function sendSlackRuleNotificationWithContext({
   logger: Logger;
 }): Promise<MessagingRuleNotificationResult> {
   if (
-    !context.messagingChannel?.isConnected ||
-    context.messagingChannel.provider !== MessagingProvider.SLACK ||
-    !context.messagingChannel.accessToken
+    !context.messagingChannel ||
+    !isOperationalSlackChannel(context.messagingChannel)
   ) {
     logger.warn("Skipping messaging notification with inactive Slack channel", {
       executedActionId: context.id,
@@ -328,7 +331,8 @@ async function sendLinkedRuleNotification({
   logger: Logger;
 }): Promise<MessagingRuleNotificationResult> {
   if (
-    !context.messagingChannel?.isConnected ||
+    !context.messagingChannel ||
+    !isMessagingChannelOperational(context.messagingChannel) ||
     (context.messagingChannel.provider !== MessagingProvider.TEAMS &&
       context.messagingChannel.provider !== MessagingProvider.TELEGRAM)
   ) {
@@ -988,8 +992,7 @@ async function getAuthorizedSlackNotificationContext({
 
   if (
     !context?.messagingChannel ||
-    context.messagingChannel.provider !== MessagingProvider.SLACK ||
-    !context.messagingChannel.isConnected
+    !isOperationalSlackChannel(context.messagingChannel)
   ) {
     if (event) {
       await postNotificationFeedback({
@@ -1669,27 +1672,16 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
     return;
   }
 
-  if (!context.messagingChannel?.isConnected) {
+  if (
+    !context.messagingChannel ||
+    !isMessagingChannelOperational(context.messagingChannel)
+  ) {
     logger.warn(
       "Skipping messaging draft notification cleanup for disconnected channel",
       {
         executedActionId: context.id,
         messagingChannelId: context.messagingChannelId,
         provider: context.messagingChannel?.provider,
-      },
-    );
-    return;
-  }
-
-  if (
-    context.messagingChannel.provider === MessagingProvider.SLACK &&
-    !context.messagingChannel.accessToken
-  ) {
-    logger.warn(
-      "Skipping Slack draft notification cleanup with no access token",
-      {
-        executedActionId: context.id,
-        messagingChannelId: context.messagingChannelId,
       },
     );
     return;
@@ -1718,7 +1710,7 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
     switch (context.messagingChannel.provider) {
       case MessagingProvider.SLACK: {
         const destinationChannelId = await resolveSlackRouteDestination({
-          accessToken: context.messagingChannel.accessToken!,
+          accessToken: context.messagingChannel.accessToken,
           route,
         });
 
@@ -1734,7 +1726,7 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
         }
 
         await createSlackClient(
-          context.messagingChannel.accessToken!,
+          context.messagingChannel.accessToken,
         ).chat.update(
           disableSlackLinkUnfurls({
             channel: destinationChannelId,

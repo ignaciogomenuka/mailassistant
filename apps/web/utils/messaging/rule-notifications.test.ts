@@ -1370,7 +1370,7 @@ function getNotificationContext({
           provider: MessagingProvider.SLACK,
           isConnected: true,
           teamId: "team-1",
-          providerUserId: null,
+          providerUserId: "user-1",
           accessToken: "token",
           channelId: "C123",
           routes: [

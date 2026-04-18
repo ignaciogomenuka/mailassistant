@@ -12,6 +12,7 @@ import {
   SendIcon,
   SparklesIcon,
   UserIcon,
+  UsersIcon,
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
@@ -44,16 +45,25 @@ import {
 } from "@/components/ui/item";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
+import { useUser } from "@/hooks/useUser";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { InviteMemberModal } from "@/components/InviteMemberModal";
 import { cn } from "@/utils";
 import { env } from "@/env";
 
 export default function SettingsPage() {
   const { emailAccountId: activeEmailAccountId } = useAccount();
   const { data, isLoading, error } = useAccounts();
+  const { data: user } = useUser();
   const [expandedAccountId, setExpandedAccountId] = useState<string | null>(
     null,
   );
+
+  const activeMember = user?.members?.find(
+    (member) => member.emailAccountId === activeEmailAccountId,
+  );
+  const organizationId = activeMember?.organizationId;
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
 
   const handleSlackConnected = useCallback(
     (connectedEmailAccountId: string | null) => {
@@ -152,6 +162,28 @@ export default function SettingsPage() {
           </SettingsGroup>
         )}
 
+        <SettingsGroup icon={<UsersIcon className="size-5" />} title="Team">
+          <ItemCard>
+            <Item size="sm">
+              <ItemContent>
+                <ItemTitle>Invite members</ItemTitle>
+                <ItemDescription>
+                  Share your plan by inviting teammates to your organization.
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsInviteDialogOpen(true)}
+                >
+                  Invite
+                </Button>
+              </ItemActions>
+            </Item>
+          </ItemCard>
+        </SettingsGroup>
+
         <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
           <ItemCard>
             <AppearanceSection />
@@ -175,6 +207,13 @@ export default function SettingsPage() {
           </ItemCard>
         </SettingsGroup>
       </div>
+
+      <InviteMemberModal
+        organizationId={organizationId}
+        open={isInviteDialogOpen}
+        onOpenChange={setIsInviteDialogOpen}
+        trigger={null}
+      />
     </div>
   );
 }

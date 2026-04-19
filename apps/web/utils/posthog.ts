@@ -357,7 +357,7 @@ export async function trackOnboardingAnswers(
     surveyImprovements?: string;
   },
 ) {
-  return posthogCaptureEvent(email, "Onboarding answers submitted", {
+  return posthogCaptureEvent(email, "Onboarding answer submitted", {
     ...answers,
     $set: answers,
   });

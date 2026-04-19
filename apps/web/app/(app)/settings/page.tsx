@@ -136,6 +136,28 @@ export default function SettingsPage() {
           </SettingsGroup>
         )}
 
+        <SettingsGroup icon={<UsersIcon className="size-5" />} title="Team">
+          <ItemCard>
+            <Item size="sm">
+              <ItemContent>
+                <ItemTitle>Invite members</ItemTitle>
+                <ItemDescription>
+                  Share your plan by inviting teammates to your organization.
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsInviteDialogOpen(true)}
+                >
+                  Invite
+                </Button>
+              </ItemActions>
+            </Item>
+          </ItemCard>
+        </SettingsGroup>
+
         <SettingsGroup
           icon={<SparklesIcon className="size-5" />}
           title="AI Model"
@@ -161,28 +183,6 @@ export default function SettingsPage() {
             </ItemCard>
           </SettingsGroup>
         )}
-
-        <SettingsGroup icon={<UsersIcon className="size-5" />} title="Team">
-          <ItemCard>
-            <Item size="sm">
-              <ItemContent>
-                <ItemTitle>Invite members</ItemTitle>
-                <ItemDescription>
-                  Share your plan by inviting teammates to your organization.
-                </ItemDescription>
-              </ItemContent>
-              <ItemActions>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsInviteDialogOpen(true)}
-                >
-                  Invite
-                </Button>
-              </ItemActions>
-            </Item>
-          </ItemCard>
-        </SettingsGroup>
 
         <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
           <ItemCard>

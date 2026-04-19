@@ -358,12 +358,11 @@ type FirstTimeEvent =
   (typeof FIRST_TIME_EVENTS)[keyof typeof FIRST_TIME_EVENTS];
 
 const FIRST_TIME_EVENT_TTL_SECONDS = 60 * 60 * 24 * 180; // 180 days
+const firedFirstTimeEvents = new Set<string>();
 
 /**
- * Fire a PostHog event the first time it's seen for an emailAccount.
- * Dedupe via Redis SETNX, so PostHog receives at most one event per account
- * per milestone. Distinct ID is the User.email so the event attaches to the
- * same PostHog person as signup/survey/billing events.
+ * Uses User.email as distinctId (not EmailAccount.email) so the event attaches
+ * to the same PostHog person as signup/billing events.
  */
 export async function trackFirstTimeEvent({
   emailAccountId,
@@ -374,12 +373,15 @@ export async function trackFirstTimeEvent({
   event: FirstTimeEvent;
   properties?: Record<string, unknown>;
 }) {
+  const key = `first-event:${emailAccountId}:${event}`;
+  if (firedFirstTimeEvents.has(key)) return;
+
   try {
-    const key = `first-event:${emailAccountId}:${event}`;
     const firstTime = await redis.set(key, "1", {
       nx: true,
       ex: FIRST_TIME_EVENT_TTL_SECONDS,
     });
+    firedFirstTimeEvents.add(key);
     if (!firstTime) return;
 
     const emailAccount = await prisma.emailAccount.findUnique({

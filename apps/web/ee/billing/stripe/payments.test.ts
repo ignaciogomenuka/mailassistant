@@ -37,7 +37,11 @@ describe("syncStripeInvoicePayment", () => {
           object: {
             id: "in_123",
             customer: "cus_123",
-            subscription: "sub_123",
+            parent: {
+              subscription_details: {
+                subscription: "sub_123",
+              },
+            },
             created: 1_700_000_000,
             currency: "usd",
             total: 2000,
@@ -121,7 +125,11 @@ function invoiceEvent(overrides: Partial<Stripe.Event>): Stripe.Event {
       object: {
         id: "in_default",
         customer: "cus_default",
-        subscription: "sub_default",
+        parent: {
+          subscription_details: {
+            subscription: "sub_default",
+          },
+        },
         created: 1_700_000_000,
         currency: "usd",
         total: 1000,

@@ -99,7 +99,9 @@ export function buildStripePaymentData({
   premiumId: string | null;
 }) {
   const customerId = normalizeStripeId(invoice.customer);
-  const subscriptionId = normalizeStripeId(invoice.subscription);
+  const subscriptionId = normalizeStripeId(
+    invoice.parent?.subscription_details?.subscription ?? null,
+  );
   const tax = getStripeInvoiceTaxAmount(invoice);
 
   return {

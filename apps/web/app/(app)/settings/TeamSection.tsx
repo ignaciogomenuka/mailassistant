@@ -10,17 +10,11 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
-import { useUser } from "@/hooks/useUser";
-import { useAccount } from "@/providers/EmailAccountProvider";
+import { useOrganizationId } from "@/hooks/useOrganizationId";
 
 export function TeamSection() {
-  const { emailAccountId } = useAccount();
-  const { data: user } = useUser();
+  const organizationId = useOrganizationId();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
-
-  const organizationId = user?.members?.find(
-    (member) => member.emailAccountId === emailAccountId,
-  )?.organizationId;
 
   return (
     <>

@@ -65,14 +65,13 @@ model User {
   sessions      Session[]
 
   // additional fields
-  completedOnboardingAt    DateTime? // questions about the user. e.g. their role
-  completedAppOnboardingAt DateTime? // how to use the app
-  onboardingAnswers        Json?
-  lastLogin                DateTime?
-  utms                     Json?
-  errorMessages            Json? // eg. user set incorrect AI API key
-  announcementDismissedAt  DateTime?
-  dismissedHints           String[]  @default([])
+  completedOnboardingAt   DateTime? // questions about the user. e.g. their role
+  onboardingAnswers       Json?
+  lastLogin               DateTime?
+  utms                    Json?
+  errorMessages           Json? // eg. user set incorrect AI API key
+  announcementDismissedAt DateTime?
+  dismissedHints          String[]  @default([])
 
   // survey answers (extracted from onboardingAnswers for easier querying)
   surveyFeatures     String[] // multiple choice: features user is interested in

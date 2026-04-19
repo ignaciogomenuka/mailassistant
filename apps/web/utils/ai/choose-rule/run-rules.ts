@@ -25,6 +25,7 @@ import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
 import { filterNullProperties } from "@/utils";
 import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
+import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import {
   scheduleDelayedActions,
   cancelScheduledActions,
@@ -437,6 +438,13 @@ async function executeMatchedRule(
         include: { actionItems: true },
       }),
     { logger },
+  );
+
+  after(() =>
+    trackFirstTimeEvent({
+      emailAccountId: emailAccount.id,
+      event: FIRST_TIME_EVENTS.FIRST_AUTOMATED_RULE_RUN,
+    }),
   );
 
   if (rule.systemType === SystemType.COLD_EMAIL) {

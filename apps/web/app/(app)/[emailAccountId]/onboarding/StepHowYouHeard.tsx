@@ -4,8 +4,7 @@ import {
   Megaphone,
   Users,
   Search,
-  Mic,
-  Newspaper,
+  Sparkles,
   MoreHorizontal,
 } from "lucide-react";
 import {
@@ -46,18 +45,13 @@ const SOURCES = [
   },
   {
     value: "search",
-    label: "Google search",
+    label: "Search",
     icon: <Search className="size-4" />,
   },
   {
-    value: "podcast",
-    label: "Podcast",
-    icon: <Mic className="size-4" />,
-  },
-  {
-    value: "blog",
-    label: "Blog or article",
-    icon: <Newspaper className="size-4" />,
+    value: "llm",
+    label: "ChatGPT / Claude",
+    icon: <Sparkles className="size-4" />,
   },
   {
     value: "other",

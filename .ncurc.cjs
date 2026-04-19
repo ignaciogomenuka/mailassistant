@@ -35,7 +35,8 @@ module.exports = {
     "@hookform/resolvers",
 
     // 0.71.6+ pulls in jsonpath, which calls fs.readFileSync(require.resolve(...))
-    // at module eval and breaks Turbopack production builds with EBADF
+    // at module eval and breaks Turbopack production builds with EBADF.
+    // See https://github.com/dubinc/dub-ts/issues/301
     "dub",
 
     "@types/node",

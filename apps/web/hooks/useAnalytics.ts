@@ -11,7 +11,6 @@ type OnboardingAnalyticsProps = {
   destination?: string;
   isOptional?: boolean;
   skipped?: boolean;
-  flowVariant?: string;
 };
 
 export function useOnboardingAnalytics(variant: "onboarding" | "welcome") {

@@ -23,7 +23,6 @@ describe("useOnboardingAnalytics", () => {
       stepKey: "inviteTeam",
       totalSteps: 10,
       isOptional: true,
-      flowVariant: "control",
     });
 
     expect(capture).toHaveBeenNthCalledWith(1, "onboarding_step_skipped", {
@@ -32,7 +31,6 @@ describe("useOnboardingAnalytics", () => {
       stepKey: "inviteTeam",
       totalSteps: 10,
       isOptional: true,
-      flowVariant: "control",
       skipped: true,
     });
     expect(capture).toHaveBeenNthCalledWith(2, "onboarding_step_completed", {
@@ -41,7 +39,6 @@ describe("useOnboardingAnalytics", () => {
       stepKey: "inviteTeam",
       totalSteps: 10,
       isOptional: true,
-      flowVariant: "control",
       skipped: true,
     });
   });

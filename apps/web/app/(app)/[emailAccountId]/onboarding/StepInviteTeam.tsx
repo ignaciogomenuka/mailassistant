@@ -23,14 +23,12 @@ export function StepInviteTeam({
   emailAccountId,
   organizationId,
   userName,
-  flowVariant,
   onNext,
   onSkip,
 }: {
   emailAccountId: string;
   organizationId?: string;
   userName?: string | null;
-  flowVariant: string;
   onNext: () => void;
   onSkip: () => void;
 }) {
@@ -107,7 +105,6 @@ export function StepInviteTeam({
     if (successCount > 0) {
       posthog.capture("onboarding_invite_team_submitted", {
         variant: "onboarding",
-        flowVariant,
         inviteCount: emails.length,
         successfulInvites: successCount,
         failedInvites: errorCount,
@@ -164,7 +161,6 @@ export function StepInviteTeam({
               onClick={() => {
                 posthog.capture("onboarding_invite_team_skipped", {
                   variant: "onboarding",
-                  flowVariant,
                   inviteCount: filledEmailCount,
                   hasExistingOrganization: Boolean(organizationId),
                 });

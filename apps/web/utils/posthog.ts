@@ -357,7 +357,6 @@ export const FIRST_TIME_EVENTS = {
 type FirstTimeEvent =
   (typeof FIRST_TIME_EVENTS)[keyof typeof FIRST_TIME_EVENTS];
 
-const FIRST_TIME_EVENT_TTL_SECONDS = 60 * 60 * 24 * 180; // 180 days
 const firedFirstTimeEvents = new Set<string>();
 
 /**
@@ -377,10 +376,7 @@ export async function trackFirstTimeEvent({
   if (firedFirstTimeEvents.has(key)) return;
 
   try {
-    const firstTime = await redis.set(key, "1", {
-      nx: true,
-      ex: FIRST_TIME_EVENT_TTL_SECONDS,
-    });
+    const firstTime = await redis.set(key, "1", { nx: true });
     firedFirstTimeEvents.add(key);
     if (!firstTime) return;
 

@@ -14,7 +14,6 @@ import {
   GiftIcon,
   GlobeIcon,
   SettingsIcon,
-  UserPlusIcon,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -35,14 +34,12 @@ import { EXTENSION_URL } from "@/utils/config";
 import { useUser } from "@/hooks/useUser";
 import { env } from "@/env";
 import { Referrals } from "@/components/ReferralDialog";
-import { InviteMemberModal } from "@/components/InviteMemberModal";
 
 export function NavUser() {
   const { emailAccountId, emailAccount, provider } = useAccount();
   const { closeMobileSidebar, isMobile, state } = useSidebar();
   const { data: user } = useUser();
   const [isReferralDialogOpen, setIsReferralDialogOpen] = useState(false);
-  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
 
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
   const currentEmailAccountMembers =
@@ -50,7 +47,6 @@ export function NavUser() {
       (member) => member.emailAccountId === currentEmailAccountId,
     ) || [];
   const hasOrganization = currentEmailAccountMembers.length > 0;
-  const organizationId = currentEmailAccountMembers[0]?.organizationId;
   const organizationName = currentEmailAccountMembers[0]?.organization?.name;
 
   const isExpandedSidebar = state.includes("left-sidebar");
@@ -103,15 +99,6 @@ export function NavUser() {
                 <SettingsIcon className="mr-2 size-4" />
                 Settings
               </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => {
-                closeMobileSidebar("left-sidebar");
-                setIsInviteDialogOpen(true);
-              }}
-            >
-              <UserPlusIcon className="mr-2 size-4" />
-              Invite members
             </DropdownMenuItem>
             {!hasOrganization && (
               <DropdownMenuItem asChild>
@@ -253,13 +240,6 @@ export function NavUser() {
           <Referrals />
         </DialogContent>
       </Dialog>
-
-      <InviteMemberModal
-        organizationId={organizationId}
-        open={isInviteDialogOpen}
-        onOpenChange={setIsInviteDialogOpen}
-        trigger={null}
-      />
     </>
   );
 }

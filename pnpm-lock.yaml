@@ -397,8 +397,8 @@ importers:
         specifier: 3.4.0
         version: 3.4.0
       dub:
-        specifier: 0.71.6
-        version: 0.71.6
+        specifier: 0.71.5
+        version: 0.71.5
       easymde:
         specifier: 2.20.0
         version: 2.20.0
@@ -8346,8 +8346,8 @@ packages:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
 
-  dub@0.71.6:
-    resolution: {integrity: sha512-m3SJJCZqXkRAuXfQTPXJMPPaWEeUO9AKbfoiL0bT3Y+JlzzhMibUDYbOaFFxUa8VBTqvRmhKdQXFhC0Ua+hdAw==}
+  dub@0.71.5:
+    resolution: {integrity: sha512-HpeRuILgcUZgvEUDvLtBzxhCWqSuw7ID9v/jue4G9I4uXgtY3iEaDZGXjxYQns+jCTSrYdFw0WMFLqkwto+iZw==}
 
   duck@0.1.12:
     resolution: {integrity: sha512-wkctla1O6VfP89gQ+J/yDesM0S7B7XLXjKGzXxMDVFg7uEn706niAtyYovKbyq1oT9YwDcly721/iUWoc8MVRg==}
@@ -8533,22 +8533,12 @@ packages:
     resolution: {integrity: sha512-/veY75JbMK4j1yjvuUxuVsiS/hr/4iHs9FTT6cgTexxdE0Ly/glccBAkloH/DofkjRbZU3bnoj38mOmhkZ0lHw==}
     engines: {node: '>=12'}
 
-  escodegen@2.1.0:
-    resolution: {integrity: sha512-2NlIDTwUWJN0mRPQOdtQBzbUHvdGY2P1VXSyU83Q3xKxM7WHX2Ql8dKq782Q9TgQUNOLEzEYu9bzLNj1q88I5w==}
-    engines: {node: '>=6.0'}
-    hasBin: true
-
   eslint-scope@5.1.1:
     resolution: {integrity: sha512-2NxwbF/hZ0KpepYN0cNbo+FN6XoK7GaHlQhgx/hIZl6Va0bF45RQOOwhLIy8lQDbuCiadSLCBnH2CFYquit5bw==}
     engines: {node: '>=8.0.0'}
 
   esm-env@1.2.2:
     resolution: {integrity: sha512-Epxrv+Nr/CaL4ZcFGPJIYLWFom+YeV1DqMLHJoEd9SYRxNbaFruBwfEX/kkHUJf55j2+TUbmDcmuilbP1TmXHA==}
-
-  esprima@1.2.5:
-    resolution: {integrity: sha512-S9VbPDU0adFErpDai3qDkjq8+G05ONtKzcyNrPKg/ZKa+tf879nX2KexNU95b31UoTJjRLInNBHHHjFPoCd7lQ==}
-    engines: {node: '>=0.4.0'}
-    hasBin: true
 
   esprima@4.0.1:
     resolution: {integrity: sha512-eGuFFw7Upda+g4p+QHvnW0RyTX/SVeJBDM/gCtMARO0cLuT2HcEKnTPvhjV6aGeqrCB/sbNop0Kszm0jsaWU4A==}
@@ -9621,9 +9611,6 @@ packages:
 
   jsonify@0.0.1:
     resolution: {integrity: sha512-2/Ki0GcmuqSrgFyelQq9M05y7PS0mEwuIzrf3f1fPqkVDVRvZrPZtVSMHxdgo8Aq0sxAOb/cr2aqqA3LeWHVPg==}
-
-  jsonpath@1.3.0:
-    resolution: {integrity: sha512-0kjkYHJBkAy50Z5QzArZ7udmvxrJzkpKYW27fiF//BrMY7TQibYLl+FYIXN2BiYmwMIVzSfD8aDRj6IzgBX2/w==}
 
   jsonrepair@3.14.0:
     resolution: {integrity: sha512-tWPGKMZf/8UPim+fcW2EfcQ/d/7aKUrP6IECz9G3Tu6Q5dX0orSleqJ9z6sSw7qrQkjF8/Edo4DvsWBZ8H+HNg==}
@@ -11952,9 +11939,6 @@ packages:
   standardwebhooks@1.0.0:
     resolution: {integrity: sha512-BbHGOQK9olHPMvQNHWul6MYlrRTAOKn03rOe4A8O3CLWhNf4YHBqq2HJKKC+sfqpxiBY52pNeesD6jIiLDz8jg==}
 
-  static-eval@2.1.1:
-    resolution: {integrity: sha512-MgWpQ/ZjGieSVB3eOJVs4OA2LT/q1vx98KPCTTQPzq/aLr0YUXTsgryTXr4SLfR0ZfUUCiedM9n/ABeDIyy4mA==}
-
   statuses@2.0.2:
     resolution: {integrity: sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw==}
     engines: {node: '>= 0.8'}
@@ -12454,9 +12438,6 @@ packages:
 
   uncrypto@0.1.3:
     resolution: {integrity: sha512-Ql87qFHB3s/De2ClA9e0gsnS6zXG27SkTiSJwjCc9MebbfapQfuPzumMIUMi38ezPZVNFcHI9sUIepeQfw8J8Q==}
-
-  underscore@1.13.6:
-    resolution: {integrity: sha512-+A5Sja4HP1M08MaXya7p5LvjuM7K6q/2EaC0+iovj/wOcMsTzMvDFbasi/oSapiwOlt252IqsKqPjCl7huKS0A==}
 
   underscore@1.13.7:
     resolution: {integrity: sha512-GMXzWtsc57XAtguZgaQViUOzs0KTkk8ojr3/xAxXLITqf/3EMwxC0inyETfDFjH/Krbhuep0HNbbjI9i/q3F3g==}
@@ -21461,9 +21442,8 @@ snapshots:
 
   dotenv@17.4.2: {}
 
-  dub@0.71.6:
+  dub@0.71.5:
     dependencies:
-      jsonpath: 1.3.0
       zod: 3.25.76
 
   duck@0.1.12:
@@ -21768,14 +21748,6 @@ snapshots:
 
   escape-string-regexp@5.0.0: {}
 
-  escodegen@2.1.0:
-    dependencies:
-      esprima: 4.0.1
-      estraverse: 5.3.0
-      esutils: 2.0.3
-    optionalDependencies:
-      source-map: 0.6.1
-
   eslint-scope@5.1.1:
     dependencies:
       esrecurse: 4.3.0
@@ -21783,8 +21755,6 @@ snapshots:
 
   esm-env@1.2.2:
     optional: true
-
-  esprima@1.2.5: {}
 
   esprima@4.0.1: {}
 
@@ -23077,12 +23047,6 @@ snapshots:
   jsonc-parser@3.3.1: {}
 
   jsonify@0.0.1: {}
-
-  jsonpath@1.3.0:
-    dependencies:
-      esprima: 1.2.5
-      static-eval: 2.1.1
-      underscore: 1.13.6
 
   jsonrepair@3.14.0: {}
 
@@ -26072,10 +26036,6 @@ snapshots:
       '@stablelib/base64': 1.0.1
       fast-sha256: 1.3.0
 
-  static-eval@2.1.1:
-    dependencies:
-      escodegen: 2.1.0
-
   statuses@2.0.2: {}
 
   std-env@3.10.0: {}
@@ -26603,8 +26563,6 @@ snapshots:
       zod: 4.3.6
 
   uncrypto@0.1.3: {}
-
-  underscore@1.13.6: {}
 
   underscore@1.13.7: {}
 

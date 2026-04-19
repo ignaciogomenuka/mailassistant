@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
@@ -12,7 +12,6 @@ import { StepBulkUnsubscribe } from "@/app/(app)/[emailAccountId]/onboarding/Ste
 import { StepLabels } from "@/app/(app)/[emailAccountId]/onboarding/StepLabels";
 import { usePersona } from "@/hooks/usePersona";
 import { analyzePersonaAction } from "@/utils/actions/email-account";
-import { StepFeatures } from "@/app/(app)/[emailAccountId]/onboarding/StepFeatures";
 import { StepDraft } from "@/app/(app)/[emailAccountId]/onboarding/StepDraft";
 import { StepCustomRules } from "@/app/(app)/[emailAccountId]/onboarding/StepCustomRules";
 import { StepInboxProcessed } from "@/app/(app)/[emailAccountId]/onboarding/StepInboxProcessed";
@@ -59,6 +58,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     (membership?.isOwner && membership?.organizationId) ||
       (!membership?.organizationId && !membership?.hasPendingInvitationToOrg),
   );
+  const analyticsProps = useMemo(() => ({ flowVariant: "control" }), []);
 
   const stepMap: Record<string, (() => React.ReactNode) | undefined> = {
     [STEP_KEYS.WELCOME]: () => <StepWelcome onNext={onNext} />,
@@ -68,7 +68,6 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
       ? undefined
       : () => <StepDraftReplies onNext={onNext} />,
     [STEP_KEYS.BULK_UNSUBSCRIBE]: () => <StepBulkUnsubscribe onNext={onNext} />,
-    [STEP_KEYS.FEATURES]: () => <StepFeatures onNext={onNext} />,
     [STEP_KEYS.WHO]: () => (
       <StepWho
         initialRole={data?.role || data?.personaAnalysis?.persona}
@@ -103,6 +102,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
             emailAccountId={emailAccountId}
             organizationId={membership?.organizationId ?? undefined}
             userName={membership?.userName}
+            flowVariant={analyticsProps.flowVariant}
             onNext={onNext}
             onSkip={onSkipInviteTeam}
           />
@@ -147,6 +147,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
         step: clampedStep,
         stepKey: currentStepKey,
         totalSteps,
+        ...analyticsProps,
       });
     }
 
@@ -155,8 +156,16 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
       stepKey: currentStepKey,
       totalSteps,
       isOptional: isOptionalOnboardingStep(currentStepKey),
+      ...analyticsProps,
     });
-  }, [analytics, clampedStep, currentStepKey, isMembershipLoading, totalSteps]);
+  }, [
+    analytics,
+    analyticsProps,
+    clampedStep,
+    currentStepKey,
+    isMembershipLoading,
+    totalSteps,
+  ]);
 
   const onNext = useCallback(async () => {
     if (!currentStepKey) return;
@@ -168,6 +177,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
       nextStep: clampedStep < steps.length ? clampedStep + 1 : undefined,
       nextStepKey,
       isOptional: isOptionalOnboardingStep(currentStepKey),
+      ...analyticsProps,
     });
 
     if (clampedStep < steps.length) {
@@ -180,6 +190,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
         stepKey: currentStepKey,
         totalSteps,
         destination: isPremium ? "setup" : "welcome-upgrade",
+        ...analyticsProps,
       });
       markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
       let result: Awaited<ReturnType<typeof completeOnboarding>>;
@@ -243,6 +254,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     steps.length,
     isPremium,
     completeOnboarding,
+    analyticsProps,
     getOnboardingStepPath,
   ]);
 
@@ -256,6 +268,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
       nextStep: clampedStep < steps.length ? clampedStep + 1 : undefined,
       nextStepKey,
       isOptional: true,
+      ...analyticsProps,
     });
 
     // Navigate directly — do not call onNext() which would also fire completion analytics.
@@ -264,6 +277,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     router.push(getOnboardingStepPath(nextStepKey));
   }, [
     analytics,
+    analyticsProps,
     router,
     clampedStep,
     currentStepKey,

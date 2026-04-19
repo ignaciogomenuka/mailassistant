@@ -3,14 +3,16 @@
 import {
   Megaphone,
   Users,
-  Play,
-  MessageCircle,
-  Briefcase,
   Search,
   Mic,
   Newspaper,
   MoreHorizontal,
 } from "lucide-react";
+import {
+  LinkedinIcon,
+  TwitterIcon,
+  YoutubeIcon,
+} from "@/app/(app)/[emailAccountId]/onboarding/BrandIcons";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback } from "react";
 import { PageHeading, TypographyP } from "@/components/Typography";
@@ -30,17 +32,17 @@ const SOURCES = [
   {
     value: "youtube",
     label: "YouTube",
-    icon: <Play className="size-4" />,
+    icon: <YoutubeIcon className="size-4" />,
   },
   {
     value: "twitter",
     label: "Twitter / X",
-    icon: <MessageCircle className="size-4" />,
+    icon: <TwitterIcon className="size-4" />,
   },
   {
     value: "linkedin",
     label: "LinkedIn",
-    icon: <Briefcase className="size-4" />,
+    icon: <LinkedinIcon className="size-4" />,
   },
   {
     value: "search",

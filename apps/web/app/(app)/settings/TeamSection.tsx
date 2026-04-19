@@ -10,10 +10,10 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
-import { useOrganizationId } from "@/hooks/useOrganizationId";
+import { useCurrentOrganization } from "@/hooks/useCurrentOrganization";
 
 export function TeamSection() {
-  const organizationId = useOrganizationId();
+  const organization = useCurrentOrganization();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
 
   return (
@@ -37,7 +37,7 @@ export function TeamSection() {
       </Item>
 
       <InviteMemberModal
-        organizationId={organizationId}
+        organizationId={organization?.id}
         open={isInviteDialogOpen}
         onOpenChange={setIsInviteDialogOpen}
         trigger={null}

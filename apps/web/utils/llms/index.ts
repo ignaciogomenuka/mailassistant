@@ -76,7 +76,7 @@ const NO_USER_AI_FIELDS: UserAIFields = {
 };
 
 type LLMProviderOptions = Record<string, Record<string, JSONValue>>;
-type RepairCandidateKind = "original" | "trimmed" | "unwrapped";
+type RepairCandidateKind = "original" | "trimmed" | "unwrapped" | "extracted";
 type RepairResultKind = "object-or-array" | "string-wrapped-object-or-array";
 type RepairAttemptState = {
   inputLength: number;
@@ -1217,12 +1217,61 @@ function repairObjectText(text: string, label: string) {
 function getRepairCandidates(text: string) {
   const trimmed = text.trim();
   const unwrapped = unwrapQuotedJson(trimmed);
+  const extracted = extractBalancedJson(trimmed);
 
   return dedupeRepairCandidates([
     { kind: "unwrapped", text: unwrapped },
+    { kind: "extracted", text: extracted },
     { kind: "trimmed", text: trimmed },
     { kind: "original", text },
   ]);
+}
+
+function extractBalancedJson(text: string): string | undefined {
+  const openIdx = text.search(/[{[]/);
+  if (openIdx === -1) return;
+
+  const openChar = text[openIdx];
+  const closeChar = openChar === "{" ? "}" : "]";
+  let depth = 0;
+  let inString = false;
+  let stringChar: string | undefined;
+  let escaped = false;
+
+  for (let i = openIdx; i < text.length; i++) {
+    const ch = text[i];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (inString) {
+      if (ch === "\\") {
+        escaped = true;
+      } else if (ch === stringChar) {
+        inString = false;
+        stringChar = undefined;
+      }
+      continue;
+    }
+
+    if (ch === '"' || ch === "'" || ch === "`") {
+      inString = true;
+      stringChar = ch;
+      continue;
+    }
+
+    if (ch === "{" || ch === "[") {
+      depth++;
+    } else if (ch === "}" || ch === "]") {
+      depth--;
+      if (depth === 0) {
+        if (ch !== closeChar) return;
+        return text.slice(openIdx, i + 1);
+      }
+    }
+  }
 }
 
 function unwrapQuotedJson(text: string) {

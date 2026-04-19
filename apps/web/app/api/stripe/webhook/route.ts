@@ -6,6 +6,7 @@ import { withError } from "@/utils/middleware";
 import type { Logger } from "@/utils/logger";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { getStripeTrialStartedProperties } from "@/ee/billing/stripe/posthog-events";
+import { syncStripeInvoicePayment } from "@/ee/billing/stripe/payments";
 import { syncAiGenerationOverageForUpcomingInvoice } from "@/ee/billing/stripe/ai-overage";
 import { env } from "@/env";
 import { getStripeTrialConvertedAt } from "./trial-conversion";
@@ -108,6 +109,7 @@ async function processEvent(event: Stripe.Event, logger: Logger) {
     trackEvent(email, event),
     trackBillingMilestones(email, event, customerId),
     handleReferralCompletion(customerId, event, logger),
+    syncStripeInvoicePayment({ event, logger }),
   ];
 
   if (stripeSync.status === "fulfilled") {

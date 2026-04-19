@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowRightIcon,
   Megaphone,
   Users,
   Search,
@@ -13,16 +14,30 @@ import {
   YoutubeIcon,
 } from "@/app/(app)/[emailAccountId]/onboarding/BrandIcons";
 import { useAction } from "next-safe-action/hooks";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { OnboardingButton } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingButton";
+import { Input } from "@/components/Input";
+import { Button } from "@/components/ui/button";
 import { saveOnboardingAnswersAction } from "@/utils/actions/onboarding";
 import { toastError } from "@/components/Toast";
 import { captureException, getActionErrorMessage } from "@/utils/error";
 
+const OTHER_VALUE = "other";
+
 const SOURCES = [
+  {
+    value: "search",
+    label: "Search",
+    icon: <Search className="size-4" />,
+  },
+  {
+    value: "llm",
+    label: "ChatGPT, Claude, or other AI",
+    icon: <Sparkles className="size-4" />,
+  },
   {
     value: "friend",
     label: "Friend or colleague",
@@ -44,17 +59,7 @@ const SOURCES = [
     icon: <LinkedinIcon className="size-4" />,
   },
   {
-    value: "search",
-    label: "Search",
-    icon: <Search className="size-4" />,
-  },
-  {
-    value: "llm",
-    label: "ChatGPT / Claude",
-    icon: <Sparkles className="size-4" />,
-  },
-  {
-    value: "other",
+    value: OTHER_VALUE,
     label: "Other",
     icon: <MoreHorizontal className="size-4" />,
   },
@@ -62,8 +67,10 @@ const SOURCES = [
 
 export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
   const { executeAsync: saveSource } = useAction(saveOnboardingAnswersAction);
+  const [showOtherInput, setShowOtherInput] = useState(false);
+  const [customSource, setCustomSource] = useState("");
 
-  const onSelectSource = useCallback(
+  const submitSource = useCallback(
     (source: string) => {
       onNext();
 
@@ -98,10 +105,7 @@ export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
         })
         .catch((error) => {
           captureException(error, {
-            extra: {
-              context: "onboarding",
-              step: "source",
-            },
+            extra: { context: "onboarding", step: "source" },
           });
           toastError({
             description:
@@ -110,6 +114,17 @@ export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
         });
     },
     [onNext, saveSource],
+  );
+
+  const onSelectSource = useCallback(
+    (value: string) => {
+      if (value === OTHER_VALUE) {
+        setShowOtherInput(true);
+        return;
+      }
+      submitSource(value);
+    },
+    [submitSource],
   );
 
   return (
@@ -135,6 +150,38 @@ export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
           />
         ))}
       </div>
+
+      {showOtherInput && (
+        <form
+          className="mt-4 space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submitSource(`other: ${customSource.trim()}`);
+          }}
+        >
+          <Input
+            name="customSource"
+            type="text"
+            placeholder="Where did you hear about us?"
+            registerProps={{
+              value: customSource,
+              onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+                setCustomSource(event.target.value),
+              autoFocus: true,
+            }}
+          />
+          <div className="flex w-full max-w-xs mx-auto">
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={!customSource.trim()}
+            >
+              Continue
+              <ArrowRightIcon className="size-4 ml-2" />
+            </Button>
+          </div>
+        </form>
+      )}
     </OnboardingWrapper>
   );
 }

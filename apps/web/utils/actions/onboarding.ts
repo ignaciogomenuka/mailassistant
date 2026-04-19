@@ -8,7 +8,7 @@ import {
 import { actionClientUser } from "@/utils/actions/safe-action";
 import prisma from "@/utils/prisma";
 import { updateContactCompanySize, updateContactRole } from "@inboxzero/loops";
-import { trackOnboardingAnswers } from "@/utils/posthog";
+import { trackOnboardingAnswer } from "@/utils/posthog";
 
 export const completedOnboardingAction = actionClientUser
   .metadata({ name: "completedOnboarding" })
@@ -129,7 +129,7 @@ export const saveOnboardingAnswersAction = actionClientUser
         }
 
         if (Object.keys(extractedAnswers).length > 0) {
-          await trackOnboardingAnswers(userEmail, extractedAnswers).catch(
+          await trackOnboardingAnswer(userEmail, extractedAnswers).catch(
             (error) => {
               logger.error("PostHog: Error tracking onboarding answers", {
                 error,

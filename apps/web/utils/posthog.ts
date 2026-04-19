@@ -346,7 +346,7 @@ export async function trackUserDeleted(userId: string) {
   return posthogCaptureEvent("anonymous", "User deleted", { userId }, false);
 }
 
-export async function trackOnboardingAnswers(
+export async function trackOnboardingAnswer(
   email: string,
   answers: {
     surveyFeatures?: string[];

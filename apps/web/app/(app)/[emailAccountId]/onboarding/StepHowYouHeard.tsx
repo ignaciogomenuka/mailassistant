@@ -3,9 +3,9 @@
 import {
   Megaphone,
   Users,
-  Youtube,
-  Twitter,
-  Linkedin,
+  Play,
+  MessageCircle,
+  Briefcase,
   Search,
   Mic,
   Newspaper,
@@ -30,17 +30,17 @@ const SOURCES = [
   {
     value: "youtube",
     label: "YouTube",
-    icon: <Youtube className="size-4" />,
+    icon: <Play className="size-4" />,
   },
   {
     value: "twitter",
     label: "Twitter / X",
-    icon: <Twitter className="size-4" />,
+    icon: <MessageCircle className="size-4" />,
   },
   {
     value: "linkedin",
     label: "LinkedIn",
-    icon: <Linkedin className="size-4" />,
+    icon: <Briefcase className="size-4" />,
   },
   {
     value: "search",

@@ -97,6 +97,27 @@ describe("Encryption Utilities", () => {
         /Unknown encryption version/,
       );
     });
+
+    it("throws when plaintext coincidentally looks like `v1:<hex>` (documented edge case)", () => {
+      // A user whose plaintext value happens to be a valid-looking v1 blob
+      // (e.g. `v1:deadbeefdeadbeef...`) will hit the versioned path and fail
+      // the GCM auth check. This is only reachable for rows that were stored
+      // plaintext *before* encryption was enabled for a field; new writes go
+      // through encrypt() and this exact string would be stored as ciphertext.
+      const hexPayload = "00".repeat(32);
+      expect(() => decryptToken(`v1:${hexPayload}`)).toThrow();
+    });
+
+    it("double-encrypted value decrypts one layer at a time", () => {
+      // Guards against future callers accidentally wrapping an already-encrypted
+      // value through the write path a second time. Each decrypt should peel
+      // exactly one layer.
+      const inner = encryptToken("hunter2") as string;
+      const outer = encryptToken(inner) as string;
+      expect(outer).not.toBe(inner);
+      expect(decryptToken(outer)).toBe(inner);
+      expect(decryptToken(inner)).toBe("hunter2");
+    });
   });
 
   describe("encryption and decryption cycle", () => {

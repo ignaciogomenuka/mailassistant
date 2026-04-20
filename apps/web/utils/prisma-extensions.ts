@@ -49,6 +49,12 @@ function buildResult(spec: FieldSpec) {
   return result;
 }
 
+export const __testing__ = {
+  buildQuery,
+  encryptCreateData,
+  encryptUpdateData,
+};
+
 function buildQuery(spec: FieldSpec) {
   const query: Record<string, Record<string, unknown>> = {};
   for (const [model, fields] of Object.entries(spec)) {

@@ -21,6 +21,7 @@ else
   progress.status = "running"
 end
 progress.updatedAt = ARGV[2]
+if not progress.startedAt then progress.startedAt = ARGV[2] end
 
 redis.call("SET", KEYS[1], cjson.encode(progress), "EX", ARGV[3])
 return cjson.encode(progress)

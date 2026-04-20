@@ -2,13 +2,14 @@
 
 import React from "react";
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 
@@ -100,6 +101,10 @@ vi.mock("@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns", () => ({
 import { RuleForm } from "./RuleForm";
 
 describe("RuleForm", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockEnv.webhookActionsEnabled = true;
@@ -200,6 +205,58 @@ describe("RuleForm", () => {
       screen.getByDisplayValue("Secure link to log in to Claude.ai"),
     ).toBeTruthy();
     expect(screen.getAllByDisplayValue(/@?example\.com/)).toHaveLength(4);
+  });
+
+  function renderLabelRuleAndOpenActionTypeDropdown() {
+    render(
+      <RuleForm
+        alwaysEditMode
+        rule={{
+          id: "cmjzoasfv000004ld2qar07t3",
+          name: "Label rule",
+          instructions: null,
+          groupId: null,
+          runOnThreads: false,
+          digest: false,
+          conditionalOperator: LogicalOperator.AND,
+          conditions: [
+            {
+              type: ConditionType.STATIC,
+              from: "sender@example.com",
+              to: null,
+              subject: null,
+              body: null,
+              instructions: null,
+            },
+          ],
+          actions: [
+            {
+              id: "action-label",
+              type: ActionType.LABEL,
+              labelId: { value: "label-1", name: "Follow up" },
+            },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByRole("combobox")[0]);
+  }
+
+  it("shows Call webhook in the action type dropdown when webhook actions are enabled", () => {
+    mockEnv.webhookActionsEnabled = true;
+
+    renderLabelRuleAndOpenActionTypeDropdown();
+
+    expect(screen.queryAllByText("Call webhook").length).toBeGreaterThan(0);
+  });
+
+  it("hides Call webhook from the action type dropdown when webhook actions are disabled", () => {
+    mockEnv.webhookActionsEnabled = false;
+
+    renderLabelRuleAndOpenActionTypeDropdown();
+
+    expect(screen.queryAllByText("Call webhook")).toHaveLength(0);
   });
 
   it("hides existing webhook actions when webhook actions are disabled", () => {

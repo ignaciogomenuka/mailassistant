@@ -5,15 +5,12 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
 import { getActionRiskLevel } from "@/utils/risk";
 
-const { createRuleHistoryMock, getRuleForHistoryMock, mockEnv } = vi.hoisted(
-  () => ({
-    createRuleHistoryMock: vi.fn(),
-    getRuleForHistoryMock: vi.fn(),
-    mockEnv: {
-      webhookActionsEnabled: true,
-    },
-  }),
-);
+const { createRuleHistoryMock, mockEnv } = vi.hoisted(() => ({
+  createRuleHistoryMock: vi.fn(),
+  mockEnv: {
+    webhookActionsEnabled: true,
+  },
+}));
 
 vi.mock("@/utils/prisma");
 vi.mock("next/server", () => ({
@@ -27,7 +24,6 @@ vi.mock("@/app/(app)/[emailAccountId]/assistant/examples", () => ({
 }));
 vi.mock("@/utils/rule/rule-history", () => ({
   createRuleHistory: createRuleHistoryMock,
-  getRuleForHistory: getRuleForHistoryMock,
   ruleHistoryRuleInclude: { actions: true, group: true },
 }));
 vi.mock("@/utils/email/provider-types", () => ({
@@ -77,23 +73,6 @@ describe("deleteRule", () => {
       level: "low",
       message: "safe",
     });
-    getRuleForHistoryMock.mockResolvedValue({
-      id: "rule-id",
-      enabled: true,
-      automate: true,
-      runOnThreads: true,
-      conditionalOperator: "AND",
-      name: "Rule",
-      instructions: null,
-      from: null,
-      to: null,
-      subject: null,
-      body: null,
-      systemType: null,
-      promptText: null,
-      actions: [],
-      group: null,
-    });
   });
 
   it("deletes the group first and relies on cascade delete for grouped rules", async () => {
@@ -109,6 +88,7 @@ describe("deleteRule", () => {
       where: { id: "group-id", emailAccountId: "email-account-id" },
     });
     expect(prisma.rule.delete).not.toHaveBeenCalled();
+    expect(createRuleHistoryMock).not.toHaveBeenCalled();
   });
 
   it("falls back to deleting the rule when the group is already gone", async () => {
@@ -127,10 +107,7 @@ describe("deleteRule", () => {
     expect(prisma.rule.delete).toHaveBeenCalledWith({
       where: { id: "rule-id", emailAccountId: "email-account-id" },
     });
-    expect(createRuleHistoryMock).toHaveBeenCalledWith({
-      rule: expect.objectContaining({ id: "rule-id" }),
-      triggerType: "deleted",
-    });
+    expect(createRuleHistoryMock).not.toHaveBeenCalled();
   });
 
   it("deletes the rule directly when there is no group", async () => {
@@ -146,10 +123,7 @@ describe("deleteRule", () => {
     expect(prisma.rule.delete).toHaveBeenCalledWith({
       where: { id: "rule-id", emailAccountId: "email-account-id" },
     });
-    expect(createRuleHistoryMock).toHaveBeenCalledWith({
-      rule: expect.objectContaining({ id: "rule-id" }),
-      triggerType: "deleted",
-    });
+    expect(createRuleHistoryMock).not.toHaveBeenCalled();
   });
 });
 

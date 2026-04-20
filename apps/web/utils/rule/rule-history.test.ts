@@ -1,16 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { ActionType } from "@/generated/prisma/enums";
-import {
-  createRuleHistory,
-  getRuleForHistory,
-  ruleHistoryRuleInclude,
-} from "./rule-history";
+import { createRuleHistory } from "./rule-history";
 import type { RuleWithRelations } from "./types";
 
 vi.mock("@/utils/prisma");
 
-function sampleRule(overrides: Partial<RuleWithRelations> = {}): RuleWithRelations {
+function sampleRule(
+  overrides: Partial<RuleWithRelations> = {},
+): RuleWithRelations {
   return {
     id: "rule-1",
     name: "Newsletters",
@@ -107,30 +105,5 @@ describe("createRuleHistory", () => {
         data: expect.objectContaining({ version: 5 }),
       }),
     );
-  });
-});
-
-describe("getRuleForHistory", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("loads the rule scoped to the email account with history includes", async () => {
-    vi.mocked(prisma.rule.findUnique).mockResolvedValue(null);
-
-    await getRuleForHistory({
-      ruleId: "rule-1",
-      emailAccountId: "email-acct-1",
-    });
-
-    expect(prisma.rule.findUnique).toHaveBeenCalledWith({
-      where: {
-        id_emailAccountId: {
-          id: "rule-1",
-          emailAccountId: "email-acct-1",
-        },
-      },
-      include: ruleHistoryRuleInclude,
-    });
   });
 });

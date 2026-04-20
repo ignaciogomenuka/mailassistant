@@ -9,8 +9,7 @@ export type RuleHistoryTrigger =
   | "conditions_updated"
   | "instructions_updated"
   | "enabled_updated"
-  | "run_on_threads_updated"
-  | "deleted";
+  | "run_on_threads_updated";
 
 export const ruleHistoryRuleInclude = {
   actions: true,
@@ -76,23 +75,5 @@ export async function createRuleHistory({
       // Note: this is unique and can fail in race conditions. Not a big deal for now.
       version: nextVersion,
     },
-  });
-}
-
-export async function getRuleForHistory({
-  ruleId,
-  emailAccountId,
-}: {
-  ruleId: string;
-  emailAccountId: string;
-}) {
-  return prisma.rule.findUnique({
-    where: {
-      id_emailAccountId: {
-        id: ruleId,
-        emailAccountId,
-      },
-    },
-    include: ruleHistoryRuleInclude,
   });
 }

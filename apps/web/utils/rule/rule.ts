@@ -9,7 +9,6 @@ import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import {
   createRuleHistory,
-  getRuleForHistory,
   ruleHistoryRuleInclude,
   type RuleHistoryTrigger,
 } from "@/utils/rule/rule-history";
@@ -607,19 +606,6 @@ export async function deleteRule({
   ruleId: string;
   groupId?: string | null;
 }) {
-  const rule = await getRuleForHistory({ ruleId, emailAccountId });
-  if (!rule) {
-    await prisma.rule.delete({ where: { id: ruleId, emailAccountId } });
-    return;
-  }
-
-  // RuleHistory still references Rule, so deletes must snapshot before
-  // removing the rule row.
-  await createRuleHistory({
-    rule,
-    triggerType: "deleted",
-  });
-
   if (groupId) {
     const deletedGroups = await prisma.group.deleteMany({
       where: { id: groupId, emailAccountId },

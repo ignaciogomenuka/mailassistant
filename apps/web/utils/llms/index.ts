@@ -33,6 +33,7 @@ import {
   attachLlmRepairMetadata,
   captureException,
   isAnthropicInsufficientBalanceError,
+  isContentFilterRefusal,
   isIncorrectOpenAIAPIKeyError,
   isInsufficientCreditsError,
   isInvalidAIModelError,
@@ -394,7 +395,8 @@ export function createGenerateObject({
             withNetworkRetry(() => generate(candidate), {
               label,
               shouldRetry: (error) =>
-                NoObjectGeneratedError.isInstance(error) ||
+                (NoObjectGeneratedError.isInstance(error) &&
+                  !isContentFilterRefusal(error)) ||
                 TypeValidationError.isInstance(error),
             }),
           { label },
@@ -1008,6 +1010,8 @@ function shouldFallbackToNextModel(error: unknown): boolean {
   if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
     return true;
   }
+
+  if (isContentFilterRefusal(error)) return true;
 
   const llmErrorInfo = extractLLMErrorInfo(error);
   if (llmErrorInfo.retryable) return true;

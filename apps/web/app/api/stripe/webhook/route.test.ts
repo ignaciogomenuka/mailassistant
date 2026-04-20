@@ -38,6 +38,19 @@ describe("getStripeTrialConvertedAt", () => {
     expect(getStripeTrialConvertedAt(event)).toBeNull();
   });
 
+  it("returns null when previous_attributes is undefined", () => {
+    const event = subscriptionEvent({
+      data: {
+        object: {
+          status: "active",
+          trial_end: 1_699_999_000,
+        },
+      } as Stripe.Event.Data,
+    });
+
+    expect(getStripeTrialConvertedAt(event)).toBeNull();
+  });
+
   it("returns null when the trial has not ended yet", () => {
     const event = subscriptionEvent({
       created: 1_700_000_000,

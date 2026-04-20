@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createScopedLogger } from "@/utils/logger";
+import { getStripeCancellationInitiatedAt } from "./cancellation-initiated";
 import { processEvent } from "./route";
 import { getStripeTrialConvertedAt } from "./trial-conversion";
 
@@ -207,6 +208,79 @@ describe("getStripeTrialConvertedAt", () => {
     });
 
     expect(getStripeTrialConvertedAt(event)).toBeNull();
+  });
+});
+
+describe("getStripeCancellationInitiatedAt", () => {
+  it("returns the event timestamp when cancel_at transitions from null to set", () => {
+    const event = subscriptionEvent({
+      created: 1_700_000_000,
+      data: {
+        object: {
+          cancel_at: 1_700_999_000,
+          cancel_at_period_end: false,
+        },
+        previous_attributes: {
+          cancel_at: null,
+        },
+      },
+    });
+
+    expect(getStripeCancellationInitiatedAt(event)).toEqual(
+      new Date("2023-11-14T22:13:20.000Z"),
+    );
+  });
+
+  it("returns the event timestamp when cancel_at_period_end flips to true", () => {
+    const event = subscriptionEvent({
+      created: 1_700_000_000,
+      data: {
+        object: {
+          cancel_at_period_end: true,
+        },
+        previous_attributes: {
+          cancel_at_period_end: false,
+        },
+      },
+    });
+
+    expect(getStripeCancellationInitiatedAt(event)).toEqual(
+      new Date("2023-11-14T22:13:20.000Z"),
+    );
+  });
+
+  it("returns null when cancel_at was already set previously", () => {
+    const event = subscriptionEvent({
+      created: 1_700_000_000,
+      data: {
+        object: {
+          cancel_at: 1_700_999_500,
+        },
+        previous_attributes: {
+          cancel_at: 1_700_999_000,
+        },
+      },
+    });
+
+    expect(getStripeCancellationInitiatedAt(event)).toBeNull();
+  });
+
+  it("returns null when previous_attributes is undefined", () => {
+    const event = subscriptionEvent({
+      data: {
+        object: {
+          cancel_at: 1_700_999_000,
+          cancel_at_period_end: true,
+        },
+      } as Stripe.Event.Data,
+    });
+
+    expect(getStripeCancellationInitiatedAt(event)).toBeNull();
+  });
+
+  it("returns null for non-subscription-updated events", () => {
+    const event = invoiceEvent();
+    expect(getStripeCancellationInitiatedAt(event)).toBeNull();
   });
 });
 

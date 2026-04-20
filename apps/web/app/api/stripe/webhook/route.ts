@@ -9,6 +9,7 @@ import { getStripeTrialStartedProperties } from "@/ee/billing/stripe/posthog-eve
 import { syncStripeInvoicePayment } from "@/ee/billing/stripe/payments";
 import { syncAiGenerationOverageForUpcomingInvoice } from "@/ee/billing/stripe/ai-overage";
 import { env } from "@/env";
+import { getStripeCancellationInitiatedAt } from "./cancellation-initiated";
 import { getStripeTrialConvertedAt } from "./trial-conversion";
 import {
   trackBillingTrialStarted,
@@ -109,6 +110,7 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
     trackEvent(email, event),
     trackBillingMilestones(email, event, customerId),
     handleReferralCompletion(customerId, event, logger),
+    recordCancellationInitiated(customerId, event, logger),
   ];
 
   if (stripeSync.status === "fulfilled") {
@@ -179,6 +181,32 @@ async function handleReferralCompletion(
   for (const userId of userIds) {
     await completeReferralAndGrantReward(userId, logger);
   }
+}
+
+async function recordCancellationInitiated(
+  customerId: string,
+  event: Stripe.Event,
+  logger: Logger,
+) {
+  const initiatedAt = getStripeCancellationInitiatedAt(event);
+  if (!initiatedAt) return;
+
+  const updateResult = await prisma.premium.updateMany({
+    where: { stripeCustomerId: customerId },
+    data: { stripeCancellationInitiatedAt: initiatedAt },
+  });
+
+  if (updateResult.count === 0) {
+    logger.warn("No premium found for customer during cancellation record", {
+      customerId,
+    });
+    return;
+  }
+
+  logger.info("Recorded user-initiated cancellation timestamp", {
+    customerId,
+    initiatedAt,
+  });
 }
 
 async function trackEvent(email: string | undefined, event: Stripe.Event) {

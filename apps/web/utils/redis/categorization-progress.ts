@@ -3,6 +3,29 @@ import { redis } from "@/utils/redis";
 
 const CATEGORIZATION_PROGRESS_TTL_SECONDS = 15 * 60;
 
+const INCREMENT_PROGRESS_SCRIPT = `
+local data = redis.call("GET", KEYS[1])
+if not data then return nil end
+
+local progress = cjson.decode(data)
+local totalItems = tonumber(progress.totalItems) or 0
+local increment = tonumber(ARGV[1])
+local current = tonumber(progress.completedItems) or 0
+local newCompleted = current + increment
+if newCompleted > totalItems then newCompleted = totalItems end
+
+progress.completedItems = newCompleted
+if newCompleted >= totalItems then
+  progress.status = "completed"
+else
+  progress.status = "running"
+end
+progress.updatedAt = ARGV[2]
+
+redis.call("SET", KEYS[1], cjson.encode(progress), "EX", ARGV[3])
+return cjson.encode(progress)
+`.trim();
+
 const categorizationProgressCountsSchema = z.object({
   totalItems: z.number().int().min(0),
   completedItems: z.number().int().min(0),
@@ -81,26 +104,24 @@ export async function saveCategorizationProgress({
   emailAccountId: string;
   incrementCompleted: number;
 }) {
-  const existingProgress = await getCategorizationProgress({ emailAccountId });
-  if (!existingProgress) return null;
-
   const key = getKey({ emailAccountId });
-  const completedItems = Math.min(
-    existingProgress.totalItems,
-    existingProgress.completedItems + incrementCompleted,
+  const result = await redis.eval<string[], string | null>(
+    INCREMENT_PROGRESS_SCRIPT,
+    [key],
+    [
+      incrementCompleted.toString(),
+      new Date().toISOString(),
+      CATEGORIZATION_PROGRESS_TTL_SECONDS.toString(),
+    ],
   );
-  const updatedProgress: CategorizationProgress = {
-    ...existingProgress,
-    completedItems,
-    status:
-      completedItems >= existingProgress.totalItems ? "completed" : "running",
-    updatedAt: new Date().toISOString(),
-  };
 
-  await redis.set(key, updatedProgress, {
-    ex: CATEGORIZATION_PROGRESS_TTL_SECONDS,
-  });
-  return updatedProgress;
+  if (!result) return null;
+
+  const parsed =
+    typeof result === "string"
+      ? (JSON.parse(result) as unknown)
+      : (result as unknown);
+  return categorizationProgressSchema.parse(parsed);
 }
 
 export async function deleteCategorizationProgress({

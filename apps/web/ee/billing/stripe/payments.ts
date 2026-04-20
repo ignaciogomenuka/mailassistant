@@ -153,7 +153,6 @@ function normalizeStripeId(
     | Stripe.Customer
     | Stripe.DeletedCustomer
     | Stripe.Subscription
-    | Stripe.DeletedSubscription
     | null,
 ) {
   if (!value) return null;

@@ -127,7 +127,7 @@ export function buildStripePaymentData({
 
 function getStripeInvoiceTaxAmount(invoice: Stripe.Invoice) {
   return (
-    invoice.total_tax_amounts?.reduce((sum, taxAmount) => {
+    invoice.total_taxes?.reduce((sum, taxAmount) => {
       return sum + taxAmount.amount;
     }, 0) ?? 0
   );

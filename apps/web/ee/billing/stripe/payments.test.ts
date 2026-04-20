@@ -47,7 +47,16 @@ describe("syncStripeInvoicePayment", () => {
             total: 2000,
             status: "paid",
             billing_reason: "subscription_cycle",
-            total_tax_amounts: [{ amount: 300 }],
+            total_taxes: [
+              {
+                amount: 300,
+                tax_behavior: "exclusive",
+                tax_rate_details: null,
+                taxability_reason: "standard_rated",
+                taxable_amount: 1700,
+                type: "tax_rate_details",
+              },
+            ],
             status_transitions: {
               paid_at: 1_700_000_400,
             },
@@ -135,7 +144,7 @@ function invoiceEvent(overrides: Partial<Stripe.Event>): Stripe.Event {
         total: 1000,
         status: "paid",
         billing_reason: "subscription_cycle",
-        total_tax_amounts: [],
+        total_taxes: [],
         status_transitions: {},
       },
     },

@@ -115,7 +115,7 @@ function tryLegacyDecrypt(value: string): string | null {
   try {
     return decryptHex(value, 1);
   } catch (error) {
-    logger.trace("Legacy decrypt attempt failed; treating as plaintext", {
+    logger.warn("Legacy decrypt attempt failed; treating as plaintext", {
       error,
     });
     return null;

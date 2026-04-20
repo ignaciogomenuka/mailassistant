@@ -109,6 +109,19 @@ export const saveOnboardingAnswersAction = actionClientUser
 
       const extractedAnswers = extractSurveyAnswers(questions, answers);
 
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          onboardingAnswers: { surveyId, questions, answers },
+          surveyFeatures: extractedAnswers.surveyFeatures,
+          surveyRole: extractedAnswers.surveyRole,
+          surveyGoal: extractedAnswers.surveyGoal,
+          surveyCompanySize: extractedAnswers.surveyCompanySize,
+          surveySource: extractedAnswers.surveySource,
+          surveyImprovements: extractedAnswers.surveyImprovements,
+        },
+      });
+
       after(async () => {
         await Promise.all([
           extractedAnswers.surveyRole
@@ -137,19 +150,6 @@ export const saveOnboardingAnswersAction = actionClientUser
               )
             : null,
         ]);
-      });
-
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          onboardingAnswers: { surveyId, questions, answers },
-          surveyFeatures: extractedAnswers.surveyFeatures,
-          surveyRole: extractedAnswers.surveyRole,
-          surveyGoal: extractedAnswers.surveyGoal,
-          surveyCompanySize: extractedAnswers.surveyCompanySize,
-          surveySource: extractedAnswers.surveySource,
-          surveyImprovements: extractedAnswers.surveyImprovements,
-        },
       });
     },
   );

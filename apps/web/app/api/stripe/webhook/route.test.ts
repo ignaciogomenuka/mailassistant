@@ -1,6 +1,147 @@
 import type Stripe from "stripe";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createScopedLogger } from "@/utils/logger";
+import { processEvent } from "./route";
 import { getStripeTrialConvertedAt } from "./trial-conversion";
+
+const {
+  mockSyncStripeDataToDb,
+  mockSyncStripeInvoicePayment,
+  mockSyncAiGenerationOverageForUpcomingInvoice,
+  mockTrackStripeEvent,
+  mockTrackBillingTrialStarted,
+  mockTrackTrialStarted,
+  mockTrackSubscriptionTrialStarted,
+  mockFindUnique,
+  mockUpdateMany,
+  mockCompleteReferralAndGrantReward,
+  mockCaptureException,
+} = vi.hoisted(() => ({
+  mockSyncStripeDataToDb: vi.fn(),
+  mockSyncStripeInvoicePayment: vi.fn(),
+  mockSyncAiGenerationOverageForUpcomingInvoice: vi.fn(),
+  mockTrackStripeEvent: vi.fn(),
+  mockTrackBillingTrialStarted: vi.fn(),
+  mockTrackTrialStarted: vi.fn(),
+  mockTrackSubscriptionTrialStarted: vi.fn(),
+  mockFindUnique: vi.fn(),
+  mockUpdateMany: vi.fn(),
+  mockCompleteReferralAndGrantReward: vi.fn(),
+  mockCaptureException: vi.fn(),
+}));
+
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
+}));
+
+vi.mock("next/server", () => ({
+  after: vi.fn(),
+  NextResponse: {
+    json: vi.fn(),
+  },
+}));
+
+vi.mock("@/ee/billing/stripe", () => ({
+  getStripe: vi.fn(),
+}));
+
+vi.mock("@/utils/middleware", () => ({
+  withError: vi.fn((_: string, handler: unknown) => handler),
+}));
+
+vi.mock("@/ee/billing/stripe/sync-stripe", () => ({
+  syncStripeDataToDb: mockSyncStripeDataToDb,
+}));
+
+vi.mock("@/ee/billing/stripe/payments", () => ({
+  syncStripeInvoicePayment: mockSyncStripeInvoicePayment,
+}));
+
+vi.mock("@/ee/billing/stripe/ai-overage", () => ({
+  syncAiGenerationOverageForUpcomingInvoice:
+    mockSyncAiGenerationOverageForUpcomingInvoice,
+}));
+
+vi.mock("@/env", () => ({
+  env: {
+    STRIPE_WEBHOOK_SECRET: "whsec_test",
+  },
+}));
+
+vi.mock("@/utils/posthog", () => ({
+  trackBillingTrialStarted: mockTrackBillingTrialStarted,
+  trackStripeEvent: mockTrackStripeEvent,
+  trackSubscriptionTrialStarted: mockTrackSubscriptionTrialStarted,
+  trackTrialStarted: mockTrackTrialStarted,
+}));
+
+vi.mock("@/utils/prisma", () => ({
+  default: {
+    premium: {
+      findUnique: mockFindUnique,
+      updateMany: mockUpdateMany,
+    },
+  },
+}));
+
+vi.mock("@/utils/referral/referral-tracking", () => ({
+  completeReferralAndGrantReward: mockCompleteReferralAndGrantReward,
+}));
+
+vi.mock("@/utils/error", () => ({
+  captureException: mockCaptureException,
+}));
+
+const logger = createScopedLogger("stripe-webhook-route-test");
+
+describe("processEvent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFindUnique.mockResolvedValue(null);
+    mockUpdateMany.mockResolvedValue({ count: 0 });
+    mockSyncStripeInvoicePayment.mockResolvedValue(undefined);
+    mockSyncAiGenerationOverageForUpcomingInvoice.mockResolvedValue(undefined);
+    mockTrackStripeEvent.mockResolvedValue(undefined);
+    mockTrackBillingTrialStarted.mockResolvedValue(undefined);
+    mockTrackTrialStarted.mockResolvedValue(undefined);
+    mockTrackSubscriptionTrialStarted.mockResolvedValue(undefined);
+    mockCompleteReferralAndGrantReward.mockResolvedValue(undefined);
+  });
+
+  it("syncs invoice payments after customer sync succeeds", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+
+    await processEvent(invoiceEvent(), logger);
+
+    expect(mockSyncStripeDataToDb).toHaveBeenCalledWith({
+      customerId: "cus_test",
+      logger,
+    });
+    expect(mockSyncStripeInvoicePayment).toHaveBeenCalledWith({
+      event: expect.objectContaining({ type: "invoice.paid" }),
+      logger,
+    });
+    expect(mockSyncAiGenerationOverageForUpcomingInvoice).toHaveBeenCalledWith({
+      event: expect.objectContaining({ type: "invoice.paid" }),
+      logger,
+    });
+  });
+
+  it("skips dependent billing syncs after customer sync fails", async () => {
+    mockSyncStripeDataToDb.mockRejectedValue(new Error("sync failed"));
+
+    await processEvent(invoiceEvent(), logger);
+
+    expect(mockSyncStripeDataToDb).toHaveBeenCalledWith({
+      customerId: "cus_test",
+      logger,
+    });
+    expect(mockSyncStripeInvoicePayment).not.toHaveBeenCalled();
+    expect(
+      mockSyncAiGenerationOverageForUpcomingInvoice,
+    ).not.toHaveBeenCalled();
+  });
+});
 
 describe("getStripeTrialConvertedAt", () => {
   it("returns the event timestamp when a trial converts to active", () => {
@@ -56,6 +197,28 @@ describe("getStripeTrialConvertedAt", () => {
   });
 });
 
+function invoiceEvent(overrides: Partial<Stripe.Event> = {}): Stripe.Event {
+  return {
+    id: "evt_invoice_test",
+    type: "invoice.paid",
+    object: "event",
+    api_version: "2025-03-31.basil",
+    created: 1_700_000_500,
+    livemode: false,
+    pending_webhooks: 0,
+    request: { id: null, idempotency_key: null },
+    data: {
+      object: {
+        id: "in_test",
+        customer: "cus_test",
+        created: 1_700_000_000,
+        status: "paid",
+      },
+    },
+    ...overrides,
+  } as Stripe.Event;
+}
+
 function subscriptionEvent(overrides: Partial<Stripe.Event>): Stripe.Event {
   return {
     id: "evt_test",
@@ -69,6 +232,7 @@ function subscriptionEvent(overrides: Partial<Stripe.Event>): Stripe.Event {
     data: {
       object: {
         id: "sub_test",
+        customer: "cus_test",
         status: "trialing",
         trial_end: null,
       },

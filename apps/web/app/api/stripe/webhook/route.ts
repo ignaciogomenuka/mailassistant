@@ -85,7 +85,7 @@ const allowedEvents: Stripe.Event.Type[] = [
   "payment_intent.canceled",
 ];
 
-async function processEvent(event: Stripe.Event, logger: Logger) {
+export async function processEvent(event: Stripe.Event, logger: Logger) {
   if (!allowedEvents.includes(event.type)) return;
 
   // All the events we track have a customerId
@@ -109,14 +109,14 @@ async function processEvent(event: Stripe.Event, logger: Logger) {
     trackEvent(email, event),
     trackBillingMilestones(email, event, customerId),
     handleReferralCompletion(customerId, event, logger),
-    syncStripeInvoicePayment({ event, logger }),
   ];
 
   if (stripeSync.status === "fulfilled") {
+    tasks.push(syncStripeInvoicePayment({ event, logger }));
     tasks.push(syncAiGenerationOverageForUpcomingInvoice({ event, logger }));
   } else {
     logger.error(
-      "Skipping AI overage sync because Stripe customer sync failed",
+      "Skipping dependent Stripe billing syncs because customer sync failed",
       {
         customerId,
         eventType: event.type,

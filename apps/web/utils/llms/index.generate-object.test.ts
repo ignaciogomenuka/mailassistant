@@ -5,11 +5,15 @@ vi.mock("server-only", () => ({}));
 const {
   mockAttachLlmRepairMetadata,
   mockGenerateObject,
+  mockIsContentFilterRefusal,
+  mockNoObjectGeneratedErrorIsInstance,
   mockSaveAiUsage,
   mockShouldForceNanoModel,
 } = vi.hoisted(() => ({
   mockAttachLlmRepairMetadata: vi.fn(),
   mockGenerateObject: vi.fn(),
+  mockIsContentFilterRefusal: vi.fn(() => false),
+  mockNoObjectGeneratedErrorIsInstance: vi.fn(() => false),
   mockSaveAiUsage: vi.fn(),
   mockShouldForceNanoModel: vi.fn(),
 }));
@@ -17,7 +21,7 @@ const {
 vi.mock("ai", () => ({
   APICallError: { isInstance: () => false },
   RetryError: { isInstance: () => false },
-  NoObjectGeneratedError: { isInstance: () => false },
+  NoObjectGeneratedError: { isInstance: mockNoObjectGeneratedErrorIsInstance },
   TypeValidationError: { isInstance: () => false },
   ToolLoopAgent: class {},
   generateObject: mockGenerateObject,
@@ -58,6 +62,7 @@ vi.mock("@/utils/error", () => ({
   attachLlmRepairMetadata: mockAttachLlmRepairMetadata,
   captureException: vi.fn(),
   isAnthropicInsufficientBalanceError: vi.fn(() => false),
+  isContentFilterRefusal: mockIsContentFilterRefusal,
   isIncorrectOpenAIAPIKeyError: vi.fn(() => false),
   isInsufficientCreditsError: vi.fn(() => false),
   isInvalidAIModelError: vi.fn(() => false),
@@ -314,6 +319,80 @@ describe("createGenerateObject repairText", () => {
         successfulCandidateKind: "unwrapped",
       }),
     );
+  });
+
+  it("falls back to next model on content-filter refusal without retrying primary", async () => {
+    const contentFilterError = Object.assign(
+      new Error("No object generated: could not parse the response."),
+      {
+        finishReason: "content-filter",
+        text: "I'm sorry, but I cannot assist with that request.",
+      },
+    );
+    const matchesContentFilter = (error: unknown) => {
+      const unwrapped = (error as { error?: unknown })?.error ?? error;
+      return unwrapped === contentFilterError;
+    };
+    mockNoObjectGeneratedErrorIsInstance.mockImplementation(
+      matchesContentFilter,
+    );
+    mockIsContentFilterRefusal.mockImplementation(matchesContentFilter);
+
+    mockGenerateObject
+      .mockRejectedValueOnce(contentFilterError)
+      .mockResolvedValueOnce({ object: { ok: true }, usage: null });
+
+    const generateObject = await createGenerateObjectWithFallback();
+
+    const result = await generateObject({
+      system: "Return JSON.",
+      prompt: "Return JSON.",
+      schema: {} as any,
+    } as any);
+
+    expect(result).toEqual({ object: { ok: true }, usage: null });
+    expect(mockGenerateObject).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws content-filter refusal without Sentry noise when no fallback is configured", async () => {
+    const contentFilterError = Object.assign(
+      new Error("No object generated: could not parse the response."),
+      {
+        finishReason: "content-filter",
+        text: "I'm sorry, but I cannot assist with that request.",
+      },
+    );
+    const matchesContentFilter = (error: unknown) => {
+      const unwrapped = (error as { error?: unknown })?.error ?? error;
+      return unwrapped === contentFilterError;
+    };
+    mockNoObjectGeneratedErrorIsInstance.mockImplementation(
+      matchesContentFilter,
+    );
+    mockIsContentFilterRefusal.mockImplementation(matchesContentFilter);
+
+    mockGenerateObject.mockRejectedValue(contentFilterError);
+
+    const generateObject = await createTestGenerateObject();
+
+    const rejection = await generateObject({
+      system: "Return JSON.",
+      prompt: "Return JSON.",
+      schema: {} as any,
+    } as any).then(
+      () => {
+        throw new Error("Expected rejection");
+      },
+      (error) => error,
+    );
+
+    // withLLMRetry may wrap via p-retry's context; the original refusal must
+    // remain reachable either directly or via `.error` so callers can identify it.
+    const inner = (rejection as { error?: unknown })?.error ?? rejection;
+    expect(inner).toBe(contentFilterError);
+
+    // No retries on the same model — refusal will not succeed on retry.
+    expect(mockGenerateObject).toHaveBeenCalledTimes(1);
   });
 
   it("clears stale repair metadata before trying a fallback model", async () => {
